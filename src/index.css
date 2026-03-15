@@ -1,0 +1,53 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", "IBM Plex Sans Thai", sans-serif;
+  --color-shabu-orange: #F26522;
+  --color-shabu-bg: #F9F4F0;
+}
+
+@layer base {
+  body {
+    @apply bg-shabu-bg text-slate-800 antialiased;
+    font-family: var(--font-sans);
+  }
+}
+
+@layer components {
+  .sidebar-active {
+    @apply bg-shabu-orange text-white shadow-lg shadow-orange-200/50;
+  }
+
+  .premium-card {
+    @apply bg-white rounded-3xl p-6 shadow-sm border border-slate-100;
+  }
+
+  .btn-primary {
+    @apply bg-shabu-orange text-white font-bold py-3 px-6 rounded-xl hover:opacity-90 active:scale-[0.98] transition-all;
+  }
+
+  .input-field {
+    @apply w-full bg-slate-50 border border-slate-200 px-4 py-3 rounded-xl focus:border-shabu-orange outline-none transition-all;
+  }
+
+  .sql-box {
+    @apply bg-transparent text-[11px] font-mono text-slate-500 py-4 font-bold;
+  }
+
+  .table-card {
+    @apply bg-white rounded-3xl p-6 shadow-sm border border-slate-100 flex flex-col items-center justify-center gap-2 transition-all cursor-pointer hover:border-shabu-orange border-2 border-transparent;
+  }
+}
+
+/* Custom Scrollbar to match PDF's clean look */
+::-webkit-scrollbar {
+  width: 5px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-200 rounded-full;
+}
