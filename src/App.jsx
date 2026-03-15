@@ -135,13 +135,12 @@ function App() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const apiBase = 'http://localhost:5000/api';
       const [tRes, mRes, sRes, cRes, rRes] = await Promise.all([
-        fetch(`${apiBase}/tables`),
-        fetch(`${apiBase}/food-items`),
-        fetch(`${apiBase}/employees`),
-        fetch(`${apiBase}/customers`),
-        fetch(`${apiBase}/receipts`)
+        fetch(`${API_BASE}/tables`),
+        fetch(`${API_BASE}/food-items`),
+        fetch(`${API_BASE}/employees`),
+        fetch(`${API_BASE}/customers`),
+        fetch(`${API_BASE}/receipts`)
       ]);
 
       const tablesData = await tRes.json();
@@ -157,7 +156,7 @@ function App() {
       }
 
       if (activeTab === 'Dashboard') {
-        const statsRes = await fetch(`${apiBase}/dashboard/stats`);
+        const statsRes = await fetch(`${API_BASE}/dashboard/stats`);
         const statsData = await statsRes.json();
         setStats({
           salesToday: statsData.salesToday || 0,
@@ -619,14 +618,13 @@ function App() {
           e.preventDefault();
           const formData = new FormData(e.target);
           const data = Object.fromEntries(formData.entries());
-          const apiBase = 'http://localhost:5000/api';
           let url = '';
           let method = selectedItem ? 'PUT' : 'POST';
 
-          if (showCrudModal === 'Menu') url = `${apiBase}/food-items`;
-          else if (showCrudModal === 'Staff') url = `${apiBase}/employees`;
-          else if (showCrudModal === 'Customers') url = `${apiBase}/customers`;
-          else if (showCrudModal === 'Tables') url = `${apiBase}/tables`;
+          if (showCrudModal === 'Menu') url = `${API_BASE}/food-items`;
+          else if (showCrudModal === 'Staff') url = `${API_BASE}/employees`;
+          else if (showCrudModal === 'Customers') url = `${API_BASE}/customers`;
+          else if (showCrudModal === 'Tables') url = `${API_BASE}/tables`;
 
           if (selectedItem) url += `/${selectedItem.id}`;
 
@@ -691,11 +689,10 @@ function App() {
                 type="button"
                 onClick={async () => {
                   if (confirm('คุณแน่ใจว่าต้องการลบข้อมูลนี้ใช่ไหมคะ?')) {
-                    const apiBase = 'http://localhost:5000/api';
                     let url = '';
-                    if (showCrudModal === 'Menu') url = `${apiBase}/food-items`;
-                    else if (showCrudModal === 'Staff') url = `${apiBase}/employees`;
-                    else if (showCrudModal === 'Customers') url = `${apiBase}/customers`;
+                    if (showCrudModal === 'Menu') url = `${API_BASE}/food-items`;
+                    else if (showCrudModal === 'Staff') url = `${API_BASE}/employees`;
+                    else if (showCrudModal === 'Customers') url = `${API_BASE}/customers`;
                     
                     try {
                       const res = await fetch(`${url}/${selectedItem.id}`, { method: 'DELETE' });
