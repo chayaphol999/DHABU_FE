@@ -113,6 +113,15 @@ function App() {
   const [selectedTable, setSelectedTable] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
   const [orderItems, setOrderItems] = useState([]);
+  const [toasts, setToasts] = useState([]);
+  
+  const addToast = (message, type = 'success') => {
+    const id = Date.now();
+    setToasts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 4000);
+  };
 
   // Exact SQL Queries from PDF & Requirements
   const pdfQueries = {
@@ -238,8 +247,9 @@ function App() {
         
         const initialTab = data.user.role === 'Customer' ? 'Live Map' : 'Dashboard';
         setActiveTab(initialTab);
-      } else alert(data.message || 'เข้าสู่ระบบไม่สำเร็จค่ะ');
-    } catch (e) { alert(e.message); }
+        addToast(`ยินดีต้อนรับค่ะ คุณ${data.user.name}! 🍲✨`, 'success');
+      } else addToast(data.message || 'เข้าสู่ระบบไม่สำเร็จค่ะ', 'error');
+    } catch (e) { addToast(e.message, 'error'); }
     finally { setIsLoggingIn(false); }
   };
 
@@ -251,8 +261,9 @@ function App() {
         if (confirm(`คุณต้องการจองโต๊ะ ${table.tableNo} ใช่ไหมคะ?`)) {
           try {
             await api.updateTable(table.id, { status: 'Occupied', customerId: user.customerId });
+            addToast(`จองโต๊ะ ${table.tableNo} เรียบร้อยแล้วค่ะ!`, 'success');
             fetchData();
-          } catch (e) { alert('จองโต๊ะผิดพลาดค่ะ'); }
+          } catch (e) { addToast('จองโต๊ะผิดพลาดค่ะ', 'error'); }
         }
       }
       return;
@@ -271,7 +282,7 @@ function App() {
   };
 
   const submitOrder = async () => {
-    if (!orderItems.length) return alert('กรุณาเลือกอาหารก่อนค่ะ');
+    if (!orderItems.length) return addToast('กรุณาเลือกอาหารก่อนค่ะ', 'info');
     try {
       await api.createOrder({
         orderId: `ORD-${Date.now()}`,
@@ -279,9 +290,10 @@ function App() {
         tableNo: selectedTable.tableNo,
         items: orderItems.map(i => ({ foodId: i.foodId, quantity: i.quantity }))
       });
+      addToast('สั่งอาหารเรียบร้อยแล้วค๊าา!', 'success');
       fetchData();
       setShowCrudModal(null);
-    } catch (e) { alert('สั่งอาหารผิดพลาดค่ะ'); }
+    } catch (e) { addToast('สั่งอาหารผิดพลาดค่ะ', 'error'); }
   };
 
   const finalizePayment = async () => {
@@ -293,10 +305,11 @@ function App() {
         employeeId: user.employeeId || 'admin',
         tableNo: selectedTable.tableNo
       });
+      addToast('ชำระเงินสำเร็จแล้วค่ะ ขอบพระคุณที่ใช้บริการนะคะ! 🍲🙏', 'success');
       setSelectedTable(null);
       setOrderItems([]);
       fetchData();
-    } catch (e) { alert('ชำระเงินผิดพลาดค่ะ'); }
+    } catch (e) { addToast('ชำระเงินผิดพลาดค่ะ', 'error'); }
   };
 
   if (!user) {
@@ -933,6 +946,34 @@ function App() {
               </motion.div>
             )}
           </AnimatePresence>
+
+          {/* Premium Toast Notifications */}
+          <div className="fixed top-8 right-8 z-[200] flex flex-col gap-3 pointer-events-none">
+            <AnimatePresence>
+              {toasts.map(toast => (
+                <motion.div
+                  key={toast.id}
+                  initial={{ opacity: 0, x: 50, scale: 0.8 }}
+                  animate={{ opacity: 1, x: 0, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8, x: 20, transition: { duration: 0.2 } }}
+                  className={`
+                    pointer-events-auto px-8 py-4 rounded-3xl shadow-[0_20px_40px_-10px_rgba(0,0,0,0.1)] 
+                    border border-white/50 backdrop-blur-xl flex items-center gap-4 min-w-[300px]
+                    ${toast.type === 'success' ? 'bg-shabu-orange/90 text-white' : 
+                      toast.type === 'error' ? 'bg-red-500/90 text-white' : 
+                      'bg-slate-800/90 text-white'}
+                  `}
+                >
+                  <div className="text-2xl">
+                    {toast.type === 'success' ? '✅' : toast.type === 'error' ? '❌' : 'ℹ️'}
+                  </div>
+                  <div className="font-bold tracking-tight text-sm">
+                    {toast.message}
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
         </div>
       </main>
 
