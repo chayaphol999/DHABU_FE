@@ -10,7 +10,16 @@ const api = axios.create({
 api.interceptors.response.use(
   (response) => response.data,
   (error) => {
-    const message = error.response?.data?.message || error.message || 'เชื่อมต่อ Server ไม่ได้ค่ะ';
+    let message = error.response?.data?.message || error.message || 'เชื่อมต่อ Server ไม่ได้';
+    
+    // Translation Map
+    const translations = {
+      'Invalid credentials': 'รหัสผ่านไม่ถูกต้อง',
+      'User not found': 'ไม่พบผู้ใช้งานในระบบ',
+      'Network Error': 'การเชื่อมต่ออินเทอร์เน็ตมีปัญหา'
+    };
+
+    message = translations[message] || message;
     return Promise.reject(new Error(message));
   }
 );

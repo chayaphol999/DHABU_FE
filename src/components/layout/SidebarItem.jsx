@@ -1,7 +1,11 @@
+import { motion } from 'framer-motion';
+
 export const SidebarItem = ({ icon, label, active, onClick, hidden }) => {
   if (hidden) return null;
   return (
-    <button
+    <motion.button
+      whileHover={{ x: 4 }}
+      whileTap={{ scale: 0.98 }}
       onClick={onClick}
       style={active ? { backgroundColor: '#F26522', boxShadow: '0 20px 25px -5px rgba(242, 101, 34, 0.2)' } : {}}
       className={`w-full flex items-center gap-4 px-8 py-4 cursor-pointer relative transition-colors ${active ? 'rounded-r-full mr-4' : 'hover:bg-orange-50'}`}
@@ -19,6 +23,6 @@ export const SidebarItem = ({ icon, label, active, onClick, hidden }) => {
         {label}
       </span>
       {active && <div className="ml-auto w-1.5 h-6 bg-white rounded-full flex-shrink-0"></div>}
-    </button>
+    </motion.button>
   )
 }
