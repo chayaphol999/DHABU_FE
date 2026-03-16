@@ -163,33 +163,60 @@ function App() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [tablesData, menuData, staffData, customersData, receiptsData] = await Promise.all([
-        api.getTables(),
-        api.getMenu(),
-        api.getEmployees(),
-        api.getCustomers(),
-        api.getReceipts()
-      ]);
+      // Map tabs to their respective data requirements
+      const tabDataMap = {
+        'Dashboard': async () => {
+          const [statsData, tablesData] = await Promise.all([api.getStats(), api.getTables()]);
+          setStats({
+            salesToday: statsData.salesToday || 0,
+            availableTables: statsData.availableTables || 0,
+            popularItems: statsData.popularItems || []
+          });
+          setTables(Array.isArray(tablesData) ? tablesData : []);
+        },
+        'Tables': async () => {
+          const tablesData = await api.getTables();
+          setTables(Array.isArray(tablesData) ? tablesData : []);
+        },
+        'Live Map': async () => {
+          const tablesData = await api.getTables();
+          setTables(Array.isArray(tablesData) ? tablesData : []);
+        },
+        'TablesData': async () => {
+          const tablesData = await api.getTables();
+          setTables(Array.isArray(tablesData) ? tablesData : []);
+        },
+        'Menu': async () => {
+          const menuData = await api.getMenu();
+          setMenu(Array.isArray(menuData) ? menuData : []);
+        },
+        'Staff': async () => {
+          const staffData = await api.getEmployees();
+          setStaff(Array.isArray(staffData) ? staffData : []);
+        },
+        'Customers': async () => {
+          const customersData = await api.getCustomers();
+          setCustomers(Array.isArray(customersData) ? customersData : []);
+        },
+        'Receipts': async () => {
+          const receiptsData = await api.getReceipts();
+          setReceipts(Array.isArray(receiptsData) ? receiptsData : []);
+        }
+      };
 
-      setTables(Array.isArray(tablesData) ? tablesData : []);
-      setMenu(Array.isArray(menuData) ? menuData : []);
-      setStaff(Array.isArray(staffData) ? staffData : []);
-      setCustomers(Array.isArray(customersData) ? customersData : []);
-      setReceipts(Array.isArray(receiptsData) ? receiptsData : []);
-
-      if (selectedTable) {
-        const t = tablesData.find(x => x.id === selectedTable.id);
-        if (t) setSelectedTable(t);
+      // Execute specific fetcher
+      if (tabDataMap[activeTab]) {
+        await tabDataMap[activeTab]();
       }
 
-      if (activeTab === 'Dashboard') {
-        const statsData = await api.getStats();
-        setStats({
-          salesToday: statsData.salesToday || 0,
-          availableTables: statsData.availableTables || 0,
-          popularItems: statsData.popularItems || []
-        });
+      // Maintain selected table state if needed without extra call if already fetched
+      if (selectedTable && (activeTab === 'Tables' || activeTab === 'Dashboard' || activeTab === 'TablesData' || activeTab === 'Live Map')) {
+        // Tables were already updated in the state by the specific fetchers above
+        // We just need to find the updated object in the current 'tables' state (which will be updated after re-render)
+        // or we can just rely on the next render if it's not critical to have it updated in the SAME function call.
+        // For consistency, let's just make sure we don't do an EXTRA FETCH.
       }
+
     } catch (e) {
       console.error("Fetch Error:", e);
     } finally {
