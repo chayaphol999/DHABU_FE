@@ -17,13 +17,9 @@ import { Dashboard } from './features/dashboard/Dashboard';
 import { TablesManagement } from './features/management/TablesManagement';
 import { ManagementTable } from './features/management/ManagementTable';
 import { LiveTableMap } from './components/TableMap';
-
-// Hooks
 import { useAuth } from './hooks/useAuth';
 import { useToast } from './hooks/useToast';
 import { useData } from './hooks/useData';
-
-// Utils
 import { pdfQueries } from './utils/queries';
 import { useStore } from './store/useStore';
 
@@ -254,9 +250,9 @@ function App() {
           )}
 
           {/* CRUD & Detail Modals */}
-          <Modal 
-            title={showCrudModal === 'ReceiptDetail' ? 'ใบเสร็จรับเงิน' : `จัดการข้อมูล ${showCrudModal}`} 
-            isOpen={!!showCrudModal && !showCrudModal.includes('Order')} 
+          <Modal
+            title={showCrudModal === 'ReceiptDetail' ? 'ใบเสร็จรับเงิน' : `จัดการข้อมูล ${showCrudModal}`}
+            isOpen={!!showCrudModal && !showCrudModal.includes('Order')}
             onClose={() => { setShowCrudModal(null); setSelectedItem(null); }}
             raw={showCrudModal === 'ReceiptDetail'}
           >
@@ -264,98 +260,98 @@ function App() {
               <Receipt receipt={selectedItem} />
             ) : (
               <form onSubmit={async (e) => {
-              e.preventDefault();
-              const formData = new FormData(e.target);
-              const data = Object.fromEntries(formData.entries());
-              try {
-                if (selectedItem) {
-                  if (showCrudModal === 'Menu') await api.updateFood(selectedItem.id, data);
-                  else if (showCrudModal === 'Staff') await api.updateEmployee(selectedItem.id, data);
-                  else if (showCrudModal === 'Customers') await api.updateCustomer(selectedItem.id, data);
-                  else if (showCrudModal === 'Tables') await api.updateTable(selectedItem.id, data);
-                } else {
-                  if (showCrudModal === 'Menu') await api.createFood(data);
-                  else if (showCrudModal === 'Staff') await api.createEmployee(data);
-                  else if (showCrudModal === 'Customers') await api.createCustomer(data);
-                  else if (showCrudModal === 'Tables') await api.createTable(data);
+                e.preventDefault();
+                const formData = new FormData(e.target);
+                const data = Object.fromEntries(formData.entries());
+                try {
+                  if (selectedItem) {
+                    if (showCrudModal === 'Menu') await api.updateFood(selectedItem.id, data);
+                    else if (showCrudModal === 'Staff') await api.updateEmployee(selectedItem.id, data);
+                    else if (showCrudModal === 'Customers') await api.updateCustomer(selectedItem.id, data);
+                    else if (showCrudModal === 'Tables') await api.updateTable(selectedItem.id, data);
+                  } else {
+                    if (showCrudModal === 'Menu') await api.createFood(data);
+                    else if (showCrudModal === 'Staff') await api.createEmployee(data);
+                    else if (showCrudModal === 'Customers') await api.createCustomer(data);
+                    else if (showCrudModal === 'Tables') await api.createTable(data);
+                  }
+                  fetchData();
+                  setShowCrudModal(null);
+                  setSelectedItem(null);
+                } catch (e) {
+                  addToast(e.message || 'บันทึกข้อมูลไม่สำเร็จ', 'error');
                 }
-                fetchData();
-                setShowCrudModal(null);
-                setSelectedItem(null);
-              } catch (e) {
-                addToast(e.message || 'บันทึกข้อมูลไม่สำเร็จ', 'error');
-              }
-            }} className="space-y-8 text-left">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {showCrudModal === 'Menu' && (
-                  <>
-                    <Input label="รหัสเมนูอาหาร" name="foodId" defaultValue={selectedItem?.foodId} required />
-                    <Input label="ชื่อเมนู" name="name" defaultValue={selectedItem?.name} required />
-                    <Input label="ประเภทเมนู" name="category" defaultValue={selectedItem?.category} required />
-                    <Input label="ขนาด" name="size" defaultValue={selectedItem?.size} required />
-                    <Input label="ราคา" name="price" type="number" step="0.01" defaultValue={selectedItem?.price} required />
-                    <Input label="รูป (URL)" name="image" defaultValue={selectedItem?.image} />
-                  </>
-                )}
-                {showCrudModal === 'Staff' && (
-                  <>
-                    <Input label="รหัสพนักงาน" name="employeeId" defaultValue={selectedItem?.employeeId} required />
-                    <Input label="ชื่อพนักงาน" name="name" defaultValue={selectedItem?.name} required />
-                    <Input label="ตำแหน่ง" name="position" defaultValue={selectedItem?.position} required />
-                    <Input label="เงินเดือน" name="salary" type="number" step="0.1" defaultValue={selectedItem?.salary} required />
-                    <div className="md:col-span-2">
-                      <Input label="ที่อยู่" name="address" defaultValue={selectedItem?.address} required />
-                    </div>
-                  </>
-                )}
-                {showCrudModal === 'Customers' && (
-                  <>
-                    <Input label="รหัสลูกค้า" name="customerId" defaultValue={selectedItem?.customerId} required />
-                    <Input label="ชื่อ" name="name" defaultValue={selectedItem?.name} required />
-                    <Input label="เบอร์" name="phone" defaultValue={selectedItem?.phone} required />
-                    <Input label="รหัสผ่าน" name="password" type="password" defaultValue={selectedItem?.password} />
-                  </>
-                )}
-                {showCrudModal === 'Tables' && (
-                  <>
-                    <Input label="เลขที่โต๊ะ" name="tableNo" defaultValue={selectedItem?.tableNo} required />
-                    <Input label="ขนาดโต๊ะ (จำนวนที่นั่ง)" name="capacity" type="number" defaultValue={selectedItem?.capacity} required />
-                  </>
-                )}
-              </div>
-              <div className="flex gap-4">
-                {selectedItem && (
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      if (confirm('คุณแน่ใจว่าต้องการลบข้อมูลนี้ใช่ไหม?')) {
-                        try {
-                          if (showCrudModal === 'Menu') await api.deleteFood(selectedItem.id);
-                          else if (showCrudModal === 'Staff') await api.deleteEmployee(selectedItem.id);
-                          else if (showCrudModal === 'Customers') await api.deleteCustomer(selectedItem.id);
-                          else if (showCrudModal === 'Tables') await api.deleteTable(selectedItem.id);
-                          fetchData();
-                          setShowCrudModal(null);
-                          setSelectedItem(null);
-                        } catch (e) { addToast('ลบไม่สำเร็จ', 'error'); }
-                      }
-                    }}
-                    className="flex-1 py-4 bg-red-50 text-red-500 rounded-2xl font-bold text-sm hover:bg-red-100 transition-all uppercase tracking-widest"
-                  >
-                    ลบข้อมูล
+              }} className="space-y-8 text-left">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {showCrudModal === 'Menu' && (
+                    <>
+                      <Input label="รหัสเมนูอาหาร" name="foodId" defaultValue={selectedItem?.foodId} required />
+                      <Input label="ชื่อเมนู" name="name" defaultValue={selectedItem?.name} required />
+                      <Input label="ประเภทเมนู" name="category" defaultValue={selectedItem?.category} required />
+                      <Input label="ขนาด" name="size" defaultValue={selectedItem?.size} required />
+                      <Input label="ราคา" name="price" type="number" step="0.01" defaultValue={selectedItem?.price} required />
+                      <Input label="รูป (URL)" name="image" defaultValue={selectedItem?.image} />
+                    </>
+                  )}
+                  {showCrudModal === 'Staff' && (
+                    <>
+                      <Input label="รหัสพนักงาน" name="employeeId" defaultValue={selectedItem?.employeeId} required />
+                      <Input label="ชื่อพนักงาน" name="name" defaultValue={selectedItem?.name} required />
+                      <Input label="ตำแหน่ง" name="position" defaultValue={selectedItem?.position} required />
+                      <Input label="เงินเดือน" name="salary" type="number" step="0.1" defaultValue={selectedItem?.salary} required />
+                      <div className="md:col-span-2">
+                        <Input label="ที่อยู่" name="address" defaultValue={selectedItem?.address} required />
+                      </div>
+                    </>
+                  )}
+                  {showCrudModal === 'Customers' && (
+                    <>
+                      <Input label="รหัสลูกค้า" name="customerId" defaultValue={selectedItem?.customerId} required />
+                      <Input label="ชื่อ" name="name" defaultValue={selectedItem?.name} required />
+                      <Input label="เบอร์" name="phone" defaultValue={selectedItem?.phone} required />
+                      <Input label="รหัสผ่าน" name="password" type="password" defaultValue={selectedItem?.password} />
+                    </>
+                  )}
+                  {showCrudModal === 'Tables' && (
+                    <>
+                      <Input label="เลขที่โต๊ะ" name="tableNo" defaultValue={selectedItem?.tableNo} required />
+                      <Input label="ขนาดโต๊ะ (จำนวนที่นั่ง)" name="capacity" type="number" defaultValue={selectedItem?.capacity} required />
+                    </>
+                  )}
+                </div>
+                <div className="flex gap-4">
+                  {selectedItem && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (confirm('คุณแน่ใจว่าต้องการลบข้อมูลนี้ใช่ไหม?')) {
+                          try {
+                            if (showCrudModal === 'Menu') await api.deleteFood(selectedItem.id);
+                            else if (showCrudModal === 'Staff') await api.deleteEmployee(selectedItem.id);
+                            else if (showCrudModal === 'Customers') await api.deleteCustomer(selectedItem.id);
+                            else if (showCrudModal === 'Tables') await api.deleteTable(selectedItem.id);
+                            fetchData();
+                            setShowCrudModal(null);
+                            setSelectedItem(null);
+                          } catch (e) { addToast('ลบไม่สำเร็จ', 'error'); }
+                        }
+                      }}
+                      className="flex-1 py-4 bg-red-50 text-red-500 rounded-2xl font-bold text-sm hover:bg-red-100 transition-all uppercase tracking-widest"
+                    >
+                      ลบข้อมูล
+                    </button>
+                  )}
+                  <button className="flex-[2] btn-primary text-lg shadow-xl shadow-orange-100">
+                    {selectedItem ? 'อัปเดตข้อมูล' : 'บันทึกข้อมูล'}
                   </button>
-                )}
-                <button className="flex-[2] btn-primary text-lg shadow-xl shadow-orange-100">
-                  {selectedItem ? 'อัปเดตข้อมูล' : 'บันทึกข้อมูล'}
-                </button>
-              </div>
-              <div className="pt-8 mt-8 border-t border-slate-100">
-                <SQLBox query={selectedItem ? pdfQueries[`${showCrudModal}_Update`] : pdfQueries[`${showCrudModal}_Insert`]} />
-                {selectedItem && <div className="mt-4"><SQLBox query={pdfQueries[`${showCrudModal}_Delete`]} /></div>}
-              </div>
-            </form>
-          )}
-        </Modal>
+                </div>
+                <div className="pt-8 mt-8 border-t border-slate-100">
+                  <SQLBox query={selectedItem ? pdfQueries[`${showCrudModal}_Update`] : pdfQueries[`${showCrudModal}_Insert`]} />
+                  {selectedItem && <div className="mt-4"><SQLBox query={pdfQueries[`${showCrudModal}_Delete`]} /></div>}
+                </div>
+              </form>
+            )}
+          </Modal>
 
           {/* Quick Order Modal */}
           <Modal title={`สั่งอาหาร - โต๊ะ ${selectedTable?.tableNo}`} isOpen={showCrudModal === 'OrderModal'} onClose={() => setShowCrudModal(null)}>
