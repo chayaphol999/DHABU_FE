@@ -312,9 +312,10 @@ function App() {
     } catch (e) { addToast('ชำระเงินผิดพลาดค่ะ', 'error'); }
   };
 
-  if (!user) {
-    return (
-      <div className="min-h-screen bg-shabu-bg flex items-center justify-center p-6 font-sans relative overflow-hidden">
+  return (
+    <>
+      {!user ? (
+        <div className="min-h-screen bg-shabu-bg flex items-center justify-center p-6 font-sans relative overflow-hidden">
         {/* Animated Background Elements */}
         <div className="absolute inset-0 z-0">
           <motion.div 
@@ -440,11 +441,8 @@ function App() {
           </motion.div>
         </motion.div>
       </div>
-    )
-  }
-
-  return (
-    <div className="min-h-screen bg-shabu-bg flex font-sans text-slate-800">
+    ) : (
+      <div className="min-h-screen bg-shabu-bg flex font-sans text-slate-800">
       <aside className="w-72 bg-white flex flex-col pt-12 shrink-0 border-r border-slate-100/50">
         <div className="flex items-center gap-3 mb-16 px-10">
           <div className="w-10 h-10 bg-[#F26522] rounded-xl flex items-center justify-center text-xl shadow-lg shadow-orange-100 transform -rotate-6">🍲</div>
@@ -947,33 +945,6 @@ function App() {
             )}
           </AnimatePresence>
 
-          {/* Premium Toast Notifications */}
-          <div className="fixed top-8 right-8 z-[200] flex flex-col gap-3 pointer-events-none">
-            <AnimatePresence>
-              {toasts.map(toast => (
-                <motion.div
-                  key={toast.id}
-                  initial={{ opacity: 0, x: 50, scale: 0.8 }}
-                  animate={{ opacity: 1, x: 0, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.8, x: 20, transition: { duration: 0.2 } }}
-                  className={`
-                    pointer-events-auto px-8 py-4 rounded-3xl shadow-[0_20px_40px_-10px_rgba(0,0,0,0.1)] 
-                    border border-white/50 backdrop-blur-xl flex items-center gap-4 min-w-[300px]
-                    ${toast.type === 'success' ? 'bg-shabu-orange/90 text-white' : 
-                      toast.type === 'error' ? 'bg-red-500/90 text-white' : 
-                      'bg-slate-800/90 text-white'}
-                  `}
-                >
-                  <div className="text-2xl">
-                    {toast.type === 'success' ? '✅' : toast.type === 'error' ? '❌' : 'ℹ️'}
-                  </div>
-                  <div className="font-bold tracking-tight text-sm">
-                    {toast.message}
-                  </div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          </div>
         </div>
       </main>
 
@@ -1009,10 +980,11 @@ function App() {
               else if (showCrudModal === 'Tables') await api.createTable(data);
             }
             fetchData();
+            addToast('บันทึกข้อมูลเรียบร้อยแล้วค่ะ! ✨', 'success');
             setShowCrudModal(null);
             setSelectedItem(null);
           } catch (e) {
-            alert(e.message || 'บันทึกข้อมูลไม่สำเร็จค่ะ');
+            addToast(e.message || 'บันทึกข้อมูลไม่สำเร็จค่ะ', 'error');
           }
         }} className="space-y-8 text-left">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -1058,11 +1030,6 @@ function App() {
                 type="button"
                 onClick={async () => {
                   if (confirm('คุณแน่ใจว่าต้องการลบข้อมูลนี้ใช่ไหมคะ?')) {
-                    let endpoint = '';
-                    if (showCrudModal === 'Menu') endpoint = '/food-items';
-                    else if (showCrudModal === 'Staff') endpoint = '/employees';
-                    else if (showCrudModal === 'Customers') endpoint = '/customers';
-                    
                     try {
                       if (showCrudModal === 'Menu') await api.deleteFood(selectedItem.id);
                       else if (showCrudModal === 'Staff') await api.deleteEmployee(selectedItem.id);
@@ -1072,7 +1039,8 @@ function App() {
                       fetchData();
                       setShowCrudModal(null);
                       setSelectedItem(null);
-                    } catch (e) { alert('ลบไม่สำเร็จค่ะ'); }
+                      addToast('ลบข้อมูลเรียบร้อยแล้วค่ะ', 'success');
+                    } catch (e) { addToast('ลบไม่สำเร็จค่ะ', 'error'); }
                   }
                 }}
                 className="flex-1 py-4 bg-red-50 text-red-500 rounded-2xl font-bold text-sm hover:bg-red-100 transition-all uppercase tracking-widest"
@@ -1120,8 +1088,39 @@ function App() {
         </div>
         <button onClick={submitOrder} className="btn-primary w-full mt-8 shadow-lg shadow-orange-100">ยืนยันการสั่งซื้อ</button>
       </Modal>
+
     </div>
-  )
+  )}
+
+    {/* Premium Toast Notifications Container (Root Level) */}
+    <div className="fixed top-8 right-8 z-[200] flex flex-col gap-3 pointer-events-none">
+      <AnimatePresence>
+        {toasts.map(toast => (
+          <motion.div
+            key={toast.id}
+            initial={{ opacity: 0, x: 50, scale: 0.8 }}
+            animate={{ opacity: 1, x: 0, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8, x: 20, transition: { duration: 0.2 } }}
+            className={`
+              pointer-events-auto px-8 py-4 rounded-3xl shadow-[0_40px_80px_-20px_rgba(0,0,0,0.15)] 
+              border border-white/50 backdrop-blur-xl flex items-center gap-4 min-w-[320px]
+              ${toast.type === 'success' ? 'bg-shabu-orange/90 text-white shadow-orange-200/50' : 
+                toast.type === 'error' ? 'bg-red-500/90 text-white shadow-red-200/50' : 
+                'bg-slate-800/90 text-white shadow-slate-200/50'}
+            `}
+          >
+            <div className="text-2xl drop-shadow-md">
+              {toast.type === 'success' ? '✅' : toast.type === 'error' ? '❌' : 'ℹ️'}
+            </div>
+            <div className="font-black tracking-tight text-sm drop-shadow-sm">
+              {toast.message}
+            </div>
+          </motion.div>
+        ))}
+      </AnimatePresence>
+    </div>
+  </>
+  );
 }
 
 export default App
