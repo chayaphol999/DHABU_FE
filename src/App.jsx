@@ -894,13 +894,33 @@ function App() {
 
           {/* Premium Loading Overlay */}
           <AnimatePresence>
-            {loading && (
+            {/* Subtle Top Loading Bar (for data refreshes) */}
+            {loading && user && (
+              <motion.div 
+                key="loading-bar"
+                initial={{ scaleX: 0, opacity: 0 }}
+                animate={{ scaleX: 1, opacity: 1 }}
+                exit={{ opacity: 0 }}
+                style={{ originX: 0 }}
+                transition={{ duration: 0.5, ease: "easeOut" }}
+                className="fixed top-0 left-0 right-0 h-1 bg-gradient-to-r from-shabu-orange via-orange-400 to-shabu-orange z-[100] shadow-[0_2px_10px_rgba(242,101,34,0.3)]"
+              >
+                <motion.div 
+                  animate={{ opacity: [0.4, 0.8, 0.4] }} 
+                  transition={{ repeat: Infinity, duration: 1.5 }}
+                  className="w-full h-full bg-white/20 blur-sm" 
+                />
+              </motion.div>
+            )}
+
+            {/* Premium Full-Screen Loader (Only for Login or critical states) */}
+            {loading && !user && (
               <motion.div 
                 key="loading-overlay"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0, transition: { duration: 0.4, ease: "easeInOut" } }}
-                className="fixed inset-0 md:left-72 flex items-center justify-center bg-shabu-bg/40 backdrop-blur-md z-[100]"
+                className="fixed inset-0 flex items-center justify-center bg-shabu-bg/40 backdrop-blur-md z-[100]"
               >
                 <motion.div 
                   initial={{ scale: 0.9, opacity: 0 }}
