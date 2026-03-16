@@ -1,11 +1,15 @@
 import { useState, useEffect } from 'react'
 import { LiveTableMap } from './components/TableMap';
+import * as api from './services/api';
+import { motion, AnimatePresence } from 'framer-motion';
 
 // --- Shared Components ---
 const SidebarItem = ({ icon, label, active, onClick, hidden }) => {
   if (hidden) return null;
   return (
-    <button
+    <motion.button
+      whileHover={{ x: 4 }}
+      whileTap={{ scale: 0.98 }}
       onClick={onClick}
       style={active ? { backgroundColor: '#F26522', boxShadow: '0 20px 25px -5px rgba(242, 101, 34, 0.2)' } : {}}
       className={`w-full flex items-center gap-4 px-8 py-4 cursor-pointer relative transition-colors ${active ? 'rounded-r-full mr-4' : 'hover:bg-orange-50'}`}
@@ -23,24 +27,38 @@ const SidebarItem = ({ icon, label, active, onClick, hidden }) => {
         {label}
       </span>
       {active && <div className="ml-auto w-1.5 h-6 bg-white rounded-full flex-shrink-0"></div>}
-    </button>
+    </motion.button>
   )
 }
 
 const Modal = ({ title, isOpen, onClose, children }) => {
-  if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 bg-slate-900/20 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-        <div className="px-8 py-6 border-b border-slate-100 flex justify-between items-center">
-          <h3 className="text-xl font-bold text-slate-800">{title}</h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 font-bold">✕</button>
-        </div>
-        <div className="p-8 max-h-[70vh] overflow-auto">
-          {children}
-        </div>
-      </div>
-    </div>
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-slate-900/40 backdrop-blur-md z-50 flex items-center justify-center p-4"
+        >
+          <motion.div 
+            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.9, opacity: 0, y: 20 }}
+            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+            className="bg-white rounded-[2rem] shadow-2xl w-full max-w-2xl overflow-hidden"
+          >
+            <div className="px-8 py-6 border-b border-slate-100 flex justify-between items-center">
+              <h3 className="text-xl font-bold text-slate-800">{title}</h3>
+              <button onClick={onClose} className="text-slate-400 hover:text-slate-600 font-bold transition-transform hover:scale-125">✕</button>
+            </div>
+            <div className="p-8 max-h-[70vh] overflow-auto">
+              {children}
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   )
 }
 
@@ -70,9 +88,18 @@ const SQLBox = ({ query }) => {
 }
 
 function App() {
-  const API_BASE = import.meta.env.VITE_API_URL || '/api';
-  const [user, setUser] = useState(null);
-  const [activeTab, setActiveTab] = useState('Dashboard');
+  const [user, setUser] = useState(() => {
+    const saved = localStorage.getItem('shabu_user');
+    return saved ? JSON.parse(saved) : null;
+  });
+  const [activeTab, setActiveTabState] = useState(() => {
+    return localStorage.getItem('shabu_active_tab') || 'Dashboard';
+  });
+
+  const setActiveTab = (tab) => {
+    setActiveTabState(tab);
+    localStorage.setItem('shabu_active_tab', tab);
+  };
   const [stats, setStats] = useState({ salesToday: 0, availableTables: 0, popularItems: [] });
   const [tables, setTables] = useState([]);
   const [menu, setMenu] = useState([]);
@@ -80,6 +107,7 @@ function App() {
   const [customers, setCustomers] = useState([]);
   const [receipts, setReceipts] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   const [showCrudModal, setShowCrudModal] = useState(null);
   const [selectedTable, setSelectedTable] = useState(null);
@@ -135,20 +163,19 @@ function App() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [tRes, mRes, sRes, cRes, rRes] = await Promise.all([
-        fetch(`${API_BASE}/tables`),
-        fetch(`${API_BASE}/food-items`),
-        fetch(`${API_BASE}/employees`),
-        fetch(`${API_BASE}/customers`),
-        fetch(`${API_BASE}/receipts`)
+      const [tablesData, menuData, staffData, customersData, receiptsData] = await Promise.all([
+        api.getTables(),
+        api.getMenu(),
+        api.getEmployees(),
+        api.getCustomers(),
+        api.getReceipts()
       ]);
 
-      const tablesData = await tRes.json();
-      setTables(tablesData);
-      setMenu(await mRes.json());
-      setStaff(await sRes.json());
-      setCustomers(await cRes.json());
-      setReceipts(await rRes.json());
+      setTables(Array.isArray(tablesData) ? tablesData : []);
+      setMenu(Array.isArray(menuData) ? menuData : []);
+      setStaff(Array.isArray(staffData) ? staffData : []);
+      setCustomers(Array.isArray(customersData) ? customersData : []);
+      setReceipts(Array.isArray(receiptsData) ? receiptsData : []);
 
       if (selectedTable) {
         const t = tablesData.find(x => x.id === selectedTable.id);
@@ -156,8 +183,7 @@ function App() {
       }
 
       if (activeTab === 'Dashboard') {
-        const statsRes = await fetch(`${API_BASE}/dashboard/stats`);
-        const statsData = await statsRes.json();
+        const statsData = await api.getStats();
         setStats({
           salesToday: statsData.salesToday || 0,
           availableTables: statsData.availableTables || 0,
@@ -176,19 +202,18 @@ function App() {
     const username = e.target.username.value;
     const password = e.target.password.value;
 
+    setIsLoggingIn(true);
     try {
-      const res = await fetch(`${API_BASE}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
-      });
-      const data = await res.json();
+      const data = await api.login(username, password);
       if (data.success) {
         setUser(data.user);
-        if (data.user.role === 'Customer') setActiveTab('Live Map');
-        else setActiveTab('Dashboard');
+        localStorage.setItem('shabu_user', JSON.stringify(data.user));
+        
+        const initialTab = data.user.role === 'Customer' ? 'Live Map' : 'Dashboard';
+        setActiveTab(initialTab);
       } else alert(data.message || 'เข้าสู่ระบบไม่สำเร็จค่ะ');
-    } catch (e) { alert('เชื่อมต่อ Server ไม่ได้ค่ะ'); }
+    } catch (e) { alert(e.message); }
+    finally { setIsLoggingIn(false); }
   };
 
   const handleTableClick = async (table) => {
@@ -198,11 +223,7 @@ function App() {
       if (table.status === 'Available') {
         if (confirm(`คุณต้องการจองโต๊ะ ${table.tableNo} ใช่ไหมคะ?`)) {
           try {
-            await fetch(`${API_BASE}/tables/${table.id}`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ status: 'Occupied', customerId: user.customerId })
-            });
+            await api.updateTable(table.id, { status: 'Occupied', customerId: user.customerId });
             fetchData();
           } catch (e) { alert('จองโต๊ะผิดพลาดค่ะ'); }
         }
@@ -214,8 +235,7 @@ function App() {
     if (activeTab !== 'Tables') setActiveTab('Tables');
     if (table.status !== 'Available') {
       try {
-        const res = await fetch(`${API_BASE}/orders/active/${table.tableNo}`);
-        const data = await res.json();
+        const data = await api.getActiveOrder(table.tableNo);
         setOrderItems(data?.items?.map(i => ({ ...i.food, quantity: i.quantity })) || []);
       } catch (e) { setOrderItems([]); }
     } else {
@@ -226,15 +246,11 @@ function App() {
   const submitOrder = async () => {
     if (!orderItems.length) return alert('กรุณาเลือกอาหารก่อนค่ะ');
     try {
-      await fetch(`${API_BASE}/orders`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          orderId: `ORD-${Date.now()}`,
-          customerId: customers[0]?.customerId || 'C001',
-          tableNo: selectedTable.tableNo,
-          items: orderItems.map(i => ({ foodId: i.foodId, quantity: i.quantity }))
-        })
+      await api.createOrder({
+        orderId: `ORD-${Date.now()}`,
+        customerId: customers[0]?.customerId || 'C001',
+        tableNo: selectedTable.tableNo,
+        items: orderItems.map(i => ({ foodId: i.foodId, quantity: i.quantity }))
       });
       fetchData();
       setShowCrudModal(null);
@@ -244,15 +260,11 @@ function App() {
   const finalizePayment = async () => {
     const total = orderItems.reduce((sum, i) => sum + (i.price * i.quantity), 0);
     try {
-      await fetch(`${API_BASE}/receipts`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          receiptId: `REC-${Date.now()}`, totalAmount: total,
-          customerId: selectedTable.customerId || 'C001',
-          employeeId: user.employeeId || 'admin',
-          tableNo: selectedTable.tableNo
-        })
+      await api.createReceipt({
+        receiptId: `REC-${Date.now()}`, totalAmount: total,
+        customerId: selectedTable.customerId || 'C001',
+        employeeId: user.employeeId || 'admin',
+        tableNo: selectedTable.tableNo
       });
       setSelectedTable(null);
       setOrderItems([]);
@@ -262,23 +274,59 @@ function App() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-shabu-bg flex items-center justify-center p-6 font-sans">
-        <div className="bg-white w-full max-w-md p-12 rounded-[3.5rem] shadow-2xl border border-slate-100 flex flex-col items-center">
-          <div className="w-20 h-20 bg-[#F26522] rounded-3xl shadow-xl flex items-center justify-center text-3xl mb-6 transform rotate-12">🍲</div>
+      <div className="min-h-screen bg-shabu-bg flex items-center justify-center p-6 font-sans relative overflow-hidden">
+        <AnimatePresence>
+          {isLoggingIn && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-slate-900/20 backdrop-blur-md z-50 flex flex-col items-center justify-center"
+            >
+              <motion.div 
+                animate={{ y: [0, -20, 0] }}
+                transition={{ repeat: Infinity, duration: 1, ease: "easeInOut" }}
+                className="w-24 h-24 bg-white rounded-3xl shadow-2xl flex items-center justify-center text-5xl mb-8 border-4 border-[#F26522]"
+              >
+                🍲
+              </motion.div>
+              <h2 className="text-xl font-black text-slate-800 tracking-[0.2em] uppercase bg-white px-8 py-4 rounded-full shadow-2xl animate-pulse">กำลังเข้าสู่ระบบ...</h2>
+            </motion.div>
+          )}
+        </AnimatePresence>
+        
+        <motion.div 
+          initial={{ y: 40, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.8, ease: "circOut" }}
+          className="bg-white w-full max-w-md p-12 rounded-[3.5rem] shadow-2xl border border-slate-100 flex flex-col items-center relative z-10"
+        >
+          <motion.div 
+            whileHover={{ rotate: 12, scale: 1.1 }}
+            className="w-20 h-20 bg-[#F26522] rounded-3xl shadow-xl flex items-center justify-center text-3xl mb-6 transform rotate-12"
+          >
+            🍲
+          </motion.div>
           <h1 className="text-3xl font-black text-slate-800 mb-2 uppercase tracking-tighter">SHABU PRO</h1>
           <p className="text-slate-400 font-bold text-sm mb-12">ยินดีต้อนรับเข้าสู่ระบบ</p>
 
           <form className="w-full space-y-6" onSubmit={handleLogin}>
-            <Input label="USERNAME" name="username" required />
-            <Input label="PASSWORD" name="password" type="password" required />
+            <Input label="USERNAME" name="username" required disabled={isLoggingIn} />
+            <Input label="PASSWORD" name="password" type="password" required disabled={isLoggingIn} />
 
-            <button className="btn-primary w-full text-lg py-4 mt-4 shadow-xl shadow-orange-100">เข้าสู่ระบบ</button>
+            <motion.button 
+              whileTap={{ scale: 0.95 }}
+              disabled={isLoggingIn} 
+              className="btn-primary w-full text-lg py-4 mt-4 shadow-xl shadow-orange-100 disabled:opacity-50"
+            >
+              {isLoggingIn ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
+            </motion.button>
           </form>
 
           <div className="w-full mt-12 pt-8 border-t border-slate-50">
             <SQLBox query={pdfQueries['Login'].replace('?', "'admin'").replace('?', "'1234'")} />
           </div>
-        </div>
+        </motion.div>
       </div>
     )
   }
@@ -313,7 +361,11 @@ function App() {
               <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">{user.role}</p>
             </div>
           </div>
-          <button onClick={() => setUser(null)} className="w-full text-center text-[11px] font-bold text-slate-400 hover:text-red-500 transition-colors uppercase tracking-widest cursor-pointer">← ออกจากระบบ</button>
+          <button onClick={() => {
+            setUser(null);
+            localStorage.removeItem('shabu_user');
+            localStorage.removeItem('shabu_active_tab');
+          }} className="w-full text-center text-[11px] font-bold text-slate-400 hover:text-red-500 transition-colors uppercase tracking-widest cursor-pointer">← ออกจากระบบ</button>
         </div>
       </aside>
 
@@ -328,280 +380,460 @@ function App() {
           </div>
         </header>
 
-        <div className="px-12 pb-24 flex-grow flex flex-col">
-          {loading && <div className="text-center py-20 animate-pulse font-bold text-slate-300">กำลังโหลด...</div>}
-
-          {!loading && activeTab === 'Dashboard' && (
-            <div className="space-y-12 text-left animate-in fade-in duration-500">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="premium-card">
-                  <div className="flex justify-between items-start mb-6">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ยอดขายวันนี้</p>
-                    <span className="text-green-500 text-xs">📈</span>
-                  </div>
-                  <p className="text-4xl font-black text-slate-800">฿{(stats.salesToday || 0).toLocaleString()}</p>
-                  <SQLBox query={pdfQueries['Dashboard_Sales']} />
-                </div>
-                <div className="premium-card">
-                  <div className="flex justify-between items-start mb-6">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">โต๊ะที่ว่าง</p>
-                    <span className="text-blue-500 text-xs">🪑</span>
-                  </div>
-                  <p className="text-4xl font-black text-slate-800">{stats.availableTables}</p>
-                  <SQLBox query={pdfQueries['Dashboard_Tables']} />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-2 premium-card">
-                  <h3 className="font-bold text-slate-800 mb-8 uppercase tracking-widest text-xs flex items-center gap-2">
-                    <span className="w-2 h-2 bg-shabu-orange rounded-full"></span> แผนผังโต๊ะล่าสุด (Live Table Map)
-                  </h3>
-                  <div className="grid grid-cols-4 gap-4">
-                    {tables.map(t => (
-                      <button key={t.id} onClick={() => handleTableClick(t)} className={`p-6 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 group ${t.status === 'Available' ? 'bg-green-50/50 border-green-100' : 'bg-red-50/50 border-red-100 opacity-60'}`}>
-                        <p className="text-sm font-black text-slate-800 transition-transform group-hover:scale-110">โต๊ะ {t.tableNo}</p>
-                        <p className="text-[9px] font-bold text-slate-400 uppercase">ความจุ {t.capacity} ท่าน</p>
-                        <div className={`mt-2 w-full h-1.5 rounded-full ${t.status === 'Available' ? 'bg-green-500' : 'bg-red-500'}`} />
-                      </button>
-                    ))}
-                  </div>
-                  <SQLBox query={pdfQueries['Live Map']} />
-                </div>
-                <div className="premium-card">
-                  <h3 className="font-bold text-slate-800 mb-8 uppercase tracking-widest text-xs">เมนูมาแรงที่สุด</h3>
-                  <div className="space-y-6">
-                    {stats.popularItems.slice(0, 3).map((m, idx) => (
-                      <div key={idx} className="flex flex-col gap-2">
-                        <div className="flex justify-between items-center text-[11px] font-bold">
-                          <span className="text-slate-800">🍜 {m.name}</span>
-                          <span className="text-slate-400">{m.count} จาน</span>
+        <div className="px-12 pb-24 flex-grow flex flex-col relative">
+          <AnimatePresence mode="wait">
+            {activeTab === 'Dashboard' && (
+                  <motion.div 
+                    key="dashboard"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.3, ease: "circOut" }}
+                    className="space-y-12 text-left w-full"
+                  >
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      <motion.div 
+                        whileHover={{ y: -8 }}
+                        transition={{ type: "spring", damping: 15 }}
+                        className="premium-card"
+                      >
+                        <div className="flex justify-between items-start mb-6">
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ยอดขายวันนี้</p>
+                          <span className="text-green-500 text-xs">📈</span>
                         </div>
-                        <div className="w-full h-2 bg-slate-50 rounded-full overflow-hidden">
-                          <div className="h-full bg-shabu-orange transition-all duration-1000" style={{ width: `${(m.count / (stats.popularItems[0]?.count || 1)) * 100}%` }}></div>
+                        <p className="text-4xl font-black text-slate-800">฿{(stats.salesToday || 0).toLocaleString()}</p>
+                        <SQLBox query={pdfQueries['Dashboard_Sales']} />
+                      </motion.div>
+                      <motion.div 
+                        whileHover={{ y: -8 }}
+                        transition={{ type: "spring", damping: 15 }}
+                        className="premium-card"
+                      >
+                        <div className="flex justify-between items-start mb-6">
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">โต๊ะที่ว่าง</p>
+                          <span className="text-blue-500 text-xs">🪑</span>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                  <SQLBox query={pdfQueries['Dashboard_Popular']} />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {!loading && activeTab === 'Tables' && (
-            <div className="grid grid-cols-1 lg:grid-cols-5 gap-10 items-start text-left animate-in fade-in duration-500">
-              <div className="lg:col-span-3 premium-card">
-                <div className="flex justify-between items-center mb-10 pb-6 border-b border-slate-50">
-                  <h3 className="font-bold text-slate-800 uppercase tracking-widest text-xs">ผังโต๊ะและการจัดการ</h3>
-                  <div className="flex gap-6">
-                    <div className="flex items-center gap-2 text-[9px] font-bold text-slate-400 uppercase">
-                      <div className="w-2 h-2 bg-green-500 rounded-full"></div> ว่าง
-                    </div>
-                    <div className="flex items-center gap-2 text-[9px] font-bold text-slate-400 uppercase">
-                      <div className="w-2 h-2 bg-red-500 rounded-full"></div> ไม่ว่าง
-                    </div>
-                  </div>
-                </div>
-                <div className="grid grid-cols-4 gap-4">
-                  {tables.map(t => (
-                    <button key={t.id} onClick={() => handleTableClick(t)} className={`p-6 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 group ${t.id === selectedTable?.id ? 'border-shabu-orange ring-4 ring-orange-50 bg-white' : (t.status === 'Available' ? 'bg-white border-slate-100' : 'bg-red-50/50 border-red-50 opacity-60')}`}>
-                      <p className="text-sm font-black text-slate-800">โต๊ะ {t.tableNo}</p>
-                      <p className="text-[9px] font-bold text-slate-400 uppercase">ความจุ {t.capacity} ท่าน</p>
-                      <div className={`mt-2 w-full h-1.5 rounded-full ${t.status === 'Available' ? 'bg-green-500' : 'bg-red-500'}`} />
-                    </button>
-                  ))}
-                </div>
-                <SQLBox query={pdfQueries['Live Map']} />
-              </div>
-
-              <div className="lg:col-span-2 space-y-6 animate-in slide-in-from-right-10 duration-500">
-                {selectedTable ? (
-                  <div className="premium-card !p-8 border-l-4 border-shabu-orange">
-                    <div className="flex justify-between items-center mb-8">
-                      <div>
-                        <h3 className="text-2xl font-black text-slate-800">โต๊ะ: {selectedTable.tableNo}</h3>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">เริ่มเปิดโต๊ะ: 12:30 น.</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">เวลาที่เหลือ</p>
-                        <p className="text-2xl font-black text-shabu-orange tabular-nums tracking-tighter">1:15:30</p>
-                      </div>
+                        <p className="text-4xl font-black text-slate-800">{stats.availableTables}</p>
+                        <SQLBox query={pdfQueries['Dashboard_Tables']} />
+                      </motion.div>
                     </div>
 
-                    <div className="space-y-4 mb-10 max-h-[400px] overflow-auto pr-2">
-                      <p className="text-[10px] font-bold text-slate-300 uppercase tracking-[0.2em] mb-4">รายการล่าสุด</p>
-                      {orderItems.map((i, idx) => (
-                        <div key={idx} className="flex justify-between items-center py-2 group">
-                          <div className="flex items-center gap-3">
-                            <span className="font-bold text-[10px] text-slate-400">{i.quantity}x</span>
-                            <span className="font-bold text-slate-700 text-sm">{i.name}</span>
-                          </div>
-                          <span className="font-bold text-slate-800 tabular-nums text-sm">฿{(i.price * i.quantity).toLocaleString()}</span>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                      <motion.div 
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.2 }}
+                        className="lg:col-span-2 premium-card"
+                      >
+                        <h3 className="font-bold text-slate-800 mb-8 uppercase tracking-widest text-xs flex items-center gap-2">
+                          <span className="w-2 h-2 bg-shabu-orange rounded-full"></span> แผนผังโต๊ะล่าสุด (Live Table Map)
+                        </h3>
+                        <div className="grid grid-cols-4 gap-4">
+                          {tables.map((t, idx) => (
+                            <motion.button 
+                              initial={{ opacity: 0, scale: 0.8 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              transition={{ delay: 0.1 + (idx * 0.05) }}
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              key={t.id} 
+                              onClick={() => handleTableClick(t)} 
+                              className={`p-6 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 group ${t.status === 'Available' ? 'bg-green-50/50 border-green-100' : 'bg-red-50/50 border-red-100 opacity-60'}`}
+                            >
+                              <p className="text-sm font-black text-slate-800">โต๊ะ {t.tableNo}</p>
+                              <p className="text-[9px] font-bold text-slate-400 uppercase">ความจุ {t.capacity} ท่าน</p>
+                              <div className={`mt-2 w-full h-1.5 rounded-full ${t.status === 'Available' ? 'bg-green-500' : 'bg-red-500'}`} />
+                            </motion.button>
+                          ))}
                         </div>
-                      ))}
-                      {orderItems.length === 0 && <div className="py-12 text-center text-slate-300 italic text-xs">ยังไม่มีออเดอร์</div>}
+                        <SQLBox query={pdfQueries['Live Map']} />
+                      </motion.div>
+                      <motion.div 
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.2 }}
+                        className="premium-card"
+                      >
+                        <h3 className="font-bold text-slate-800 mb-8 uppercase tracking-widest text-xs">เมนูมาแรงที่สุด</h3>
+                        <div className="space-y-6">
+                          {stats.popularItems.slice(0, 3).map((m, idx) => (
+                            <div key={idx} className="flex flex-col gap-2">
+                              <div className="flex justify-between items-center text-[11px] font-bold">
+                                <span className="text-slate-800">🍜 {m.name}</span>
+                                <span className="text-slate-400">{m.count} จาน</span>
+                              </div>
+                              <div className="w-full h-2 bg-slate-50 rounded-full overflow-hidden">
+                                <motion.div 
+                                  initial={{ width: 0 }}
+                                  animate={{ width: `${(m.count / (stats.popularItems[0]?.count || 1)) * 100}%` }}
+                                  transition={{ duration: 1, ease: "circOut" }}
+                                  className="h-full bg-shabu-orange"
+                                ></motion.div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        <SQLBox query={pdfQueries['Dashboard_Popular']} />
+                      </motion.div>
                     </div>
-
-                    <div className="space-y-4 pt-6 border-t border-slate-50">
-                      <div className="flex justify-between items-center mb-6">
-                        <span className="text-xs font-bold text-slate-400">ราคาสุทธิ</span>
-                        <span className="text-3xl font-black text-shabu-orange">฿{orderItems.reduce((sum, i) => sum + (i.price * i.quantity), 0).toLocaleString()}</span>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <button onClick={() => setShowCrudModal('OrderModal')} className="py-4 bg-slate-100 text-slate-600 rounded-xl font-bold text-[11px] uppercase tracking-widest hover:bg-slate-200 transition-all">✚ สั่งอาหาร</button>
-                        <button onClick={() => alert("ฟีเจอร์ย้ายโต๊ะยังไม่พร้อมใช้งานค่ะ")} className="py-4 bg-slate-100 text-slate-600 rounded-xl font-bold text-[11px] uppercase tracking-widest hover:bg-slate-200 transition-all">⇄ ย้ายโต๊ะ</button>
-                      </div>
-                      <button onClick={finalizePayment} className="w-full py-5 bg-shabu-orange text-white rounded-xl font-bold text-[13px] uppercase tracking-[0.2em] shadow-lg bg-[#E65100] hover:opacity-90 transition-all mt-4">🧾 เช็คบิล ({orderItems.reduce((sum, i) => sum + (i.price * i.quantity), 0).toLocaleString()})</button>
-                    </div>
-                    <div className="mt-8 space-y-4">
-                      <SQLBox query={pdfQueries['Ordering'].replace('?', `'${selectedTable.tableNo}'`)} />
-                      <SQLBox query={pdfQueries['Receipt_Insert']} />
-                      <SQLBox query={pdfQueries['Table_Release']} />
-                    </div>
-                  </div>
-                ) : (
-                  <div className="premium-card py-32 flex flex-col items-center justify-center border-dashed border-2 border-slate-200 opacity-60">
-                    <span className="text-4xl grayscale mb-6">🪑</span>
-                    <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">เลือกโต๊ะเพื่อจัดการออเดอร์</p>
-                  </div>
+                  </motion.div>
                 )}
-              </div>
-            </div>
-          )}
 
-          {!loading && ['Menu', 'Staff', 'Customers', 'Receipts', 'TablesData'].includes(activeTab) && (
-            <div className="premium-card !p-0 overflow-hidden text-left animate-in fade-in duration-500">
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse">
-                  <thead className="bg-slate-50 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
-                    <tr>
-                      {activeTab === 'Staff' && (
-                        <>
-                          <th className="px-8 py-6">ID / ชื่อพนักงาน</th>
-                          <th className="px-8 py-6">ตำแหน่ง</th>
-                          <th className="px-8 py-6">เงินเดือน</th>
-                          <th className="px-8 py-6">ที่อยู่</th>
-                          <th className="px-8 py-6 text-right">Actions</th>
-                        </>
-                      )}
-                      {activeTab === 'TablesData' && (
-                        <>
-                          <th className="px-8 py-6">ID / เลขที่โต๊ะ</th>
-                          <th className="px-8 py-6">ความจุ (ที่นั่ง)</th>
-                          <th className="px-8 py-6">สถานะปัจจุบัน</th>
-                          <th className="px-8 py-6 text-right">Actions</th>
-                        </>
-                      )}
-                      {activeTab === 'Menu' && (
-                        <>
-                          <th className="px-8 py-6">ID / เมนู</th>
-                          <th className="px-8 py-6">ประเภท</th>
-                          <th className="px-8 py-6 text-center">ขนาด</th>
-                          <th className="px-8 py-6 text-center">ราคา</th>
-                          <th className="px-8 py-6 text-right">Actions</th>
-                        </>
-                      )}
-                      {activeTab === 'Customers' && (
-                        <>
-                          <th className="px-8 py-6">รหัสลูกค้า</th>
-                          <th className="px-8 py-6">ชื่อลูกค้า</th>
-                          <th className="px-8 py-6 text-center">เบอร์โทร</th>
-                          <th className="px-8 py-6 text-right">Actions</th>
-                        </>
-                      )}
-                      {activeTab === 'Receipts' && (
-                        <>
-                          <th className="px-8 py-6">รหัสใบเสร็จ</th>
-                          <th className="px-8 py-6 text-center">วันที่ออก</th>
-                          <th className="px-8 py-6 text-center">รหัสลูกค้า</th>
-                          <th className="px-8 py-6 text-right">ยอดรวม</th>
-                        </>
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-50 text-sm">
-                    {activeTab === 'Staff' && staff.map(s => (
-                      <tr key={s.id} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="px-8 py-6">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-400 text-[10px]">{s.name?.charAt(0)}</div>
+                {activeTab === 'Tables' && (
+                  <motion.div 
+                    key="tables-management"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.3, ease: "circOut" }}
+                    className="grid grid-cols-1 lg:grid-cols-5 gap-10 items-start text-left w-full"
+                  >
+                    <div className="lg:col-span-3 premium-card">
+                      <div className="flex justify-between items-center mb-10 pb-6 border-b border-slate-50">
+                        <h3 className="font-bold text-slate-800 uppercase tracking-widest text-xs">ผังโต๊ะและการจัดการ</h3>
+                        <div className="flex gap-6">
+                          <div className="flex items-center gap-2 text-[9px] font-bold text-slate-400 uppercase">
+                            <div className="w-2 h-2 bg-green-500 rounded-full"></div> ว่าง
+                          </div>
+                          <div className="flex items-center gap-2 text-[9px] font-bold text-slate-400 uppercase">
+                            <div className="w-2 h-2 bg-red-500 rounded-full"></div> ไม่ว่าง
+                          </div>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-4 gap-4">
+                        {tables.map((t, idx) => (
+                          <motion.button 
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ delay: idx * 0.03 }}
+                            whileHover={{ y: -5 }}
+                            whileTap={{ scale: 0.95 }}
+                            key={t.id} 
+                            onClick={() => handleTableClick(t)} 
+                            className={`p-6 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 group ${t.id === selectedTable?.id ? 'border-shabu-orange ring-4 ring-orange-50 bg-white' : (t.status === 'Available' ? 'bg-white border-slate-100' : 'bg-red-50/50 border-red-50 opacity-60')}`}
+                          >
+                            <p className="text-sm font-black text-slate-800">โต๊ะ {t.tableNo}</p>
+                            <p className="text-[9px] font-bold text-slate-400 uppercase">ความจุ {t.capacity} ท่าน</p>
+                            <div className={`mt-2 w-full h-1.5 rounded-full ${t.status === 'Available' ? 'bg-green-500' : 'bg-red-500'}`} />
+                          </motion.button>
+                        ))}
+                      </div>
+                      <SQLBox query={pdfQueries['Live Map']} />
+                    </div>
+
+                    <div className="lg:col-span-2 space-y-6">
+                      {selectedTable ? (
+                        <motion.div 
+                          key={`order-${selectedTable.id}`}
+                          initial={{ opacity: 0, x: 20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          className="premium-card !p-8 border-l-4 border-shabu-orange"
+                        >
+                          <div className="flex justify-between items-center mb-8">
                             <div>
-                              <p className="font-bold text-slate-800">{s.name}</p>
-                              <p className="text-[9px] text-slate-400 font-bold uppercase">{s.employeeId}</p>
+                              <h3 className="text-2xl font-black text-slate-800">โต๊ะ: {selectedTable.tableNo}</h3>
+                              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">เริ่มเปิดโต๊ะ: 12:30 น.</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">เวลาที่เหลือ</p>
+                              <p className="text-2xl font-black text-shabu-orange tabular-nums tracking-tighter">1:15:30</p>
                             </div>
                           </div>
-                        </td>
-                        <td className="px-8 py-6"><span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase ${s.position === 'Manager' ? 'bg-orange-100 text-shabu-orange' : 'bg-slate-100 text-slate-500'}`}>{s.position}</span></td>
-                        <td className="px-8 py-6 font-bold tabular-nums">฿{s.salary?.toLocaleString()}</td>
-                        <td className="px-8 py-6 text-slate-400 text-xs w-64 truncate">{s.address}</td>
-                        <td className="px-8 py-6 text-right">
-                          <button onClick={() => { setSelectedItem(s); setShowCrudModal('Staff'); }} className="p-2 text-slate-300 hover:text-shabu-orange transition-colors">✎</button>
-                        </td>
-                      </tr>
-                    ))}
-                    {activeTab === 'Menu' && menu.map(m => (
-                      <tr key={m.id} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="px-8 py-6">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center text-lg">🍜</div>
-                            <div>
-                              <p className="font-bold text-slate-800">{m.name}</p>
-                              <p className="text-[9px] text-slate-400 font-bold uppercase">{m.foodId}</p>
-                            </div>
+
+                          <div className="space-y-4 mb-10 max-h-[400px] overflow-auto pr-2">
+                            <p className="text-[10px] font-bold text-slate-300 uppercase tracking-[0.2em] mb-4">รายการล่าสุด</p>
+                            <AnimatePresence>
+                              {orderItems.map((i, idx) => (
+                                <motion.div 
+                                  initial={{ opacity: 0, x: -10 }}
+                                  animate={{ opacity: 1, x: 0 }}
+                                  key={idx} 
+                                  className="flex justify-between items-center py-2 group"
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <span className="font-bold text-[10px] text-slate-400">{i.quantity}x</span>
+                                    <span className="font-bold text-slate-700 text-sm">{i.name}</span>
+                                  </div>
+                                  <span className="font-bold text-slate-800 tabular-nums text-sm">฿{(i.price * i.quantity).toLocaleString()}</span>
+                                </motion.div>
+                              ))}
+                            </AnimatePresence>
+                            {orderItems.length === 0 && <div className="py-12 text-center text-slate-300 italic text-xs">ยังไม่มีออเดอร์</div>}
                           </div>
-                        </td>
-                        <td className="px-8 py-6 text-xs text-slate-400 font-bold">{m.category}</td>
-                        <td className="px-8 py-6 text-center text-xs text-slate-400">{m.size}</td>
-                        <td className="px-8 py-6 text-center font-bold text-shabu-orange">฿{m.price?.toLocaleString()}</td>
-                        <td className="px-8 py-6 text-right">
-                          <button onClick={() => { setSelectedItem(m); setShowCrudModal('Menu'); }} className="p-2 text-slate-300 hover:text-shabu-orange transition-colors">✎</button>
-                        </td>
-                      </tr>
+
+                          <div className="space-y-4 pt-6 border-t border-slate-50">
+                            <div className="flex justify-between items-center mb-6">
+                              <span className="text-xs font-bold text-slate-400">ราคาสุทธิ</span>
+                              <span className="text-3xl font-black text-shabu-orange">฿{orderItems.reduce((sum, i) => sum + (i.price * i.quantity), 0).toLocaleString()}</span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                              <motion.button whileTap={{ scale: 0.95 }} onClick={() => setShowCrudModal('OrderModal')} className="py-4 bg-slate-100 text-slate-600 rounded-xl font-bold text-[11px] uppercase tracking-widest hover:bg-slate-200 transition-all">✚ สั่งอาหาร</motion.button>
+                              <motion.button whileTap={{ scale: 0.95 }} onClick={() => alert("ฟีเจอร์ย้ายโต๊ะยังไม่พร้อมใช้งานค่ะ")} className="py-4 bg-slate-100 text-slate-600 rounded-xl font-bold text-[11px] uppercase tracking-widest hover:bg-slate-200 transition-all">⇄ ย้ายโต๊ะ</motion.button>
+                            </div>
+                            <motion.button 
+                              whileHover={{ scale: 1.02 }}
+                              whileTap={{ scale: 0.98 }}
+                              onClick={finalizePayment} 
+                              className="w-full py-5 bg-shabu-orange text-white rounded-xl font-bold text-[13px] uppercase tracking-[0.2em] shadow-lg bg-[#E65100] hover:opacity-90 transition-all mt-4"
+                            >
+                              🧾 เช็คบิล ({orderItems.reduce((sum, i) => sum + (i.price * i.quantity), 0).toLocaleString()})
+                            </motion.button>
+                          </div>
+                          <div className="mt-8 space-y-4">
+                            <SQLBox query={pdfQueries['Ordering'].replace('?', `'${selectedTable.tableNo}'`)} />
+                            <SQLBox query={pdfQueries['Receipt_Insert']} />
+                            <SQLBox query={pdfQueries['Table_Release']} />
+                          </div>
+                        </motion.div>
+                      ) : (
+                        <motion.div 
+                          key="no-table-selected"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          className="premium-card py-32 flex flex-col items-center justify-center border-dashed border-2 border-slate-200 opacity-60"
+                        >
+                          <span className="text-4xl grayscale mb-6">🪑</span>
+                          <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">เลือกโต๊ะเพื่อจัดการออเดอร์</p>
+                        </motion.div>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+
+                {activeTab === 'Live Map' && (
+                  <motion.div
+                    key="live-map"
+                    initial={{ opacity: 0, scale: 0.98 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.98 }}
+                    className="premium-card w-full h-[600px] overflow-hidden"
+                  >
+                    <LiveTableMap tables={tables} onTableClick={handleTableClick} />
+                  </motion.div>
+                )}
+
+                {['Menu', 'Staff', 'Customers', 'Receipts', 'TablesData'].includes(activeTab) && (
+                  <motion.div 
+                    key={`data-table-${activeTab}`}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="premium-card !p-0 overflow-hidden text-left w-full"
+                  >
+                    <div className="overflow-x-auto">
+                      <table className="w-full border-collapse">
+                        <thead className="bg-slate-50 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                          <tr>
+                            {activeTab === 'Staff' && (
+                              <>
+                                <th className="px-8 py-6">ID / ชื่อพนักงาน</th>
+                                <th className="px-8 py-6">ตำแหน่ง</th>
+                                <th className="px-8 py-6">เงินเดือน</th>
+                                <th className="px-8 py-6">ที่อยู่</th>
+                                <th className="px-8 py-6 text-right">Actions</th>
+                              </>
+                            )}
+                            {activeTab === 'TablesData' && (
+                              <>
+                                <th className="px-8 py-6">ID / เลขที่โต๊ะ</th>
+                                <th className="px-8 py-6">ความจุ (ที่นั่ง)</th>
+                                <th className="px-8 py-6">สถานะปัจจุบัน</th>
+                                <th className="px-8 py-6 text-right">Actions</th>
+                              </>
+                            )}
+                            {activeTab === 'Menu' && (
+                              <>
+                                <th className="px-8 py-6">ID / เมนู</th>
+                                <th className="px-8 py-6">ประเภท</th>
+                                <th className="px-8 py-6 text-center">ขนาด</th>
+                                <th className="px-8 py-6 text-center">ราคา</th>
+                                <th className="px-8 py-6 text-right">Actions</th>
+                              </>
+                            )}
+                            {activeTab === 'Customers' && (
+                              <>
+                                <th className="px-8 py-6">รหัสลูกค้า</th>
+                                <th className="px-8 py-6">ชื่อลูกค้า</th>
+                                <th className="px-8 py-6 text-center">เบอร์โทร</th>
+                                <th className="px-8 py-6 text-right">Actions</th>
+                              </>
+                            )}
+                            {activeTab === 'Receipts' && (
+                              <>
+                                <th className="px-8 py-6">รหัสใบเสร็จ</th>
+                                <th className="px-8 py-6 text-center">วันที่ออก</th>
+                                <th className="px-8 py-6 text-center">รหัสลูกค้า</th>
+                                <th className="px-8 py-6 text-right">ยอดรวม</th>
+                              </>
+                            )}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-50 text-sm">
+                          {activeTab === 'Staff' && staff.map((s, idx) => (
+                            <motion.tr 
+                              initial={{ opacity: 0, x: -10 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              transition={{ delay: idx * 0.02 }}
+                              key={s.id} 
+                              className="hover:bg-slate-50/50 transition-colors"
+                            >
+                              <td className="px-8 py-6">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-400 text-[10px]">{s.name?.charAt(0)}</div>
+                                  <div>
+                                    <p className="font-bold text-slate-800">{s.name}</p>
+                                    <p className="text-[9px] text-slate-400 font-bold uppercase">{s.employeeId}</p>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-8 py-6"><span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase ${s.position === 'Manager' ? 'bg-orange-100 text-shabu-orange' : 'bg-slate-100 text-slate-500'}`}>{s.position}</span></td>
+                              <td className="px-8 py-6 font-bold tabular-nums">฿{s.salary?.toLocaleString()}</td>
+                              <td className="px-8 py-6 text-slate-400 text-xs w-64 truncate">{s.address}</td>
+                              <td className="px-8 py-6 text-right">
+                                <button onClick={() => { setSelectedItem(s); setShowCrudModal('Staff'); }} className="p-2 text-slate-300 hover:text-shabu-orange transition-colors">✎</button>
+                              </td>
+                            </motion.tr>
+                          ))}
+                          {activeTab === 'Menu' && menu.map((m, idx) => (
+                            <motion.tr 
+                              initial={{ opacity: 0, x: -10 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              transition={{ delay: idx * 0.02 }}
+                              key={m.id} 
+                              className="hover:bg-slate-50/50 transition-colors"
+                            >
+                              <td className="px-8 py-6">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center text-lg">🍜</div>
+                                  <div>
+                                    <p className="font-bold text-slate-800">{m.name}</p>
+                                    <p className="text-[9px] text-slate-400 font-bold uppercase">{m.foodId}</p>
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-8 py-6 text-xs text-slate-400 font-bold">{m.category}</td>
+                              <td className="px-8 py-6 text-center text-xs text-slate-400">{m.size}</td>
+                              <td className="px-8 py-6 text-center font-bold text-shabu-orange">฿{m.price?.toLocaleString()}</td>
+                              <td className="px-8 py-6 text-right">
+                                <button onClick={() => { setSelectedItem(m); setShowCrudModal('Menu'); }} className="p-2 text-slate-300 hover:text-shabu-orange transition-colors">✎</button>
+                              </td>
+                            </motion.tr>
+                          ))}
+                          {activeTab === 'Customers' && customers.map((c, idx) => (
+                            <motion.tr 
+                              initial={{ opacity: 0, x: -10 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              transition={{ delay: idx * 0.02 }}
+                              key={c.id} 
+                              className="hover:bg-slate-50/50 transition-colors"
+                            >
+                              <td className="px-8 py-6 font-bold text-[11px] text-shabu-orange">{c.customerId}</td>
+                              <td className="px-8 py-6 font-bold text-slate-800">{c.name}</td>
+                              <td className="px-8 py-6 text-center font-bold text-slate-400 tabular-nums">{c.phone}</td>
+                              <td className="px-8 py-6 text-right">
+                                <button onClick={() => { setSelectedItem(c); setShowCrudModal('Customers'); }} className="p-2 text-slate-300 hover:text-shabu-orange transition-colors">✎</button>
+                              </td>
+                            </motion.tr>
+                          ))}
+                          {activeTab === 'Receipts' && receipts.map((r, idx) => (
+                            <motion.tr 
+                              initial={{ opacity: 0, x: -10 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              transition={{ delay: idx * 0.02 }}
+                              key={r.id} 
+                              className="hover:bg-slate-50/50 transition-colors"
+                            >
+                              <td className="px-8 py-6 font-bold text-[11px] text-shabu-orange">{r.receiptId}</td>
+                              <td className="px-8 py-6 text-center text-xs font-bold text-slate-400">{r.issueDate ? new Date(r.issueDate).toLocaleDateString() : '-'}</td>
+                              <td className="px-8 py-6 text-center font-bold text-slate-700 text-xs">{r.customerId}</td>
+                              <td className="px-8 py-6 text-right font-black text-slate-800">฿{(r.totalAmount || 0).toLocaleString()}</td>
+                            </motion.tr>
+                          ))}
+                          {activeTab === 'TablesData' && tables.map((t, idx) => (
+                            <motion.tr 
+                              initial={{ opacity: 0, x: -10 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              transition={{ delay: idx * 0.02 }}
+                              key={t.id} 
+                              className="hover:bg-slate-50/50 transition-colors"
+                            >
+                              <td className="px-8 py-6">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center font-black text-slate-600">t</div>
+                                  <p className="font-bold text-slate-800">โต๊ะ {t.tableNo}</p>
+                                </div>
+                              </td>
+                              <td className="px-8 py-6 font-bold text-slate-400">{t.capacity} ท่าน</td>
+                              <td className="px-8 py-6">
+                                <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase ${t.status === 'Available' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>{t.status}</span>
+                              </td>
+                              <td className="px-8 py-6 text-right">
+                                <button onClick={() => { setSelectedItem(t); setShowCrudModal('Tables'); }} className="p-2 text-slate-300 hover:text-shabu-orange transition-colors">✎</button>
+                              </td>
+                            </motion.tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      <div className="p-10">
+                        <SQLBox query={pdfQueries[activeTab === 'TablesData' ? 'Live Map' : activeTab]} />
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+          </AnimatePresence>
+
+          {/* Premium Loading Overlay */}
+          <AnimatePresence>
+            {loading && (
+              <motion.div 
+                key="loading-overlay"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0, transition: { duration: 0.4, ease: "easeInOut" } }}
+                className="fixed inset-0 md:left-72 flex items-center justify-center bg-shabu-bg/40 backdrop-blur-md z-[100]"
+              >
+                <motion.div 
+                  initial={{ scale: 0.9, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 1.1, opacity: 0 }}
+                  className="text-center p-16 rounded-[4rem] bg-white/80 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.1)] border border-white flex flex-col items-center"
+                >
+                  <div className="relative mb-8">
+                    <motion.div 
+                      animate={{ 
+                        y: [0, -15, 0],
+                        rotate: [0, 5, -5, 0]
+                      }}
+                      transition={{ 
+                        repeat: Infinity, 
+                        duration: 2,
+                        ease: "easeInOut" 
+                      }}
+                      className="text-6xl filter drop-shadow-lg"
+                    >
+                      🍲
+                    </motion.div>
+                    <motion.div 
+                      animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.6, 0.3] }}
+                      transition={{ repeat: Infinity, duration: 2 }}
+                      className="absolute -bottom-4 left-1/2 -translate-x-1/2 w-12 h-3 bg-slate-200/50 rounded-full blur-md"
+                    />
+                  </div>
+                  <h3 className="font-black text-slate-800 text-lg uppercase tracking-[0.2em] mb-2">Anya is working</h3>
+                  <div className="flex gap-1">
+                    {[0, 1, 2].map(i => (
+                      <motion.div
+                        key={i}
+                        animate={{ opacity: [0.3, 1, 0.3] }}
+                        transition={{ repeat: Infinity, duration: 1, delay: i * 0.2 }}
+                        className="w-1.5 h-1.5 bg-shabu-orange rounded-full"
+                      />
                     ))}
-                    {activeTab === 'Customers' && customers.map(c => (
-                      <tr key={c.id} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="px-8 py-6 font-bold text-[11px] text-shabu-orange">{c.customerId}</td>
-                        <td className="px-8 py-6 font-bold text-slate-800">{c.name}</td>
-                        <td className="px-8 py-6 text-center font-bold text-slate-400 tabular-nums">{c.phone}</td>
-                        <td className="px-8 py-6 text-right">
-                          <button onClick={() => { setSelectedItem(c); setShowCrudModal('Customers'); }} className="p-2 text-slate-300 hover:text-shabu-orange transition-colors">✎</button>
-                        </td>
-                      </tr>
-                    ))}
-                    {activeTab === 'Receipts' && receipts.map(r => (
-                      <tr key={r.id} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="px-8 py-6 font-bold text-[11px] text-shabu-orange">{r.receiptId}</td>
-                        <td className="px-8 py-6 text-center text-xs font-bold text-slate-400">{r.issueDate ? new Date(r.issueDate).toLocaleDateString() : '-'}</td>
-                        <td className="px-8 py-6 text-center font-bold text-slate-700 text-xs">{r.customerId}</td>
-                        <td className="px-8 py-6 text-right font-black text-slate-800">฿{(r.totalAmount || 0).toLocaleString()}</td>
-                      </tr>
-                    ))}
-                    {activeTab === 'TablesData' && tables.map(t => (
-                      <tr key={t.id} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="px-8 py-6">
-                           <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center font-black text-slate-600">t</div>
-                              <p className="font-bold text-slate-800">โต๊ะ {t.tableNo}</p>
-                           </div>
-                        </td>
-                        <td className="px-8 py-6 font-bold text-slate-400">{t.capacity} ท่าน</td>
-                        <td className="px-8 py-6">
-                          <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase ${t.status === 'Available' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>{t.status}</span>
-                        </td>
-                        <td className="px-8 py-6 text-right">
-                          <button onClick={() => { setSelectedItem(t); setShowCrudModal('Tables'); }} className="p-2 text-slate-300 hover:text-shabu-orange transition-colors">✎</button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                <div className="p-10">
-                  <SQLBox query={pdfQueries[activeTab === 'TablesData' ? 'Live Map' : activeTab]} />
-                </div>
-              </div>
-            </div>
-          )}
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </main>
 
@@ -618,32 +850,29 @@ function App() {
           e.preventDefault();
           const formData = new FormData(e.target);
           const data = Object.fromEntries(formData.entries());
-          let url = '';
-          let method = selectedItem ? 'PUT' : 'POST';
-
-          if (showCrudModal === 'Menu') url = `${API_BASE}/food-items`;
-          else if (showCrudModal === 'Staff') url = `${API_BASE}/employees`;
-          else if (showCrudModal === 'Customers') url = `${API_BASE}/customers`;
-          else if (showCrudModal === 'Tables') url = `${API_BASE}/tables`;
-
-          if (selectedItem) url += `/${selectedItem.id}`;
+          let endpoint = '';
+          if (showCrudModal === 'Menu') endpoint = '/food-items';
+          else if (showCrudModal === 'Staff') endpoint = '/employees';
+          else if (showCrudModal === 'Customers') endpoint = '/customers';
+          else if (showCrudModal === 'Tables') endpoint = '/tables';
 
           try {
-            const res = await fetch(url, {
-              method,
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(data)
-            });
-            if (res.ok) {
-              fetchData();
-              setShowCrudModal(null);
-              setSelectedItem(null);
+            if (selectedItem) {
+              if (showCrudModal === 'Menu') await api.updateFood(selectedItem.id, data);
+              else if (showCrudModal === 'Staff') await api.updateEmployee(selectedItem.id, data);
+              else if (showCrudModal === 'Customers') await api.updateCustomer(selectedItem.id, data);
+              else if (showCrudModal === 'Tables') await api.updateTable(selectedItem.id, data);
             } else {
-              const err = await res.json();
-              alert(`Error: ${err.error}`);
+              if (showCrudModal === 'Menu') await api.createFood(data);
+              else if (showCrudModal === 'Staff') await api.createEmployee(data);
+              else if (showCrudModal === 'Customers') await api.createCustomer(data);
+              else if (showCrudModal === 'Tables') await api.createTable(data);
             }
+            fetchData();
+            setShowCrudModal(null);
+            setSelectedItem(null);
           } catch (e) {
-            alert('บันทึกข้อมูลไม่สำเร็จค่ะ');
+            alert(e.message || 'บันทึกข้อมูลไม่สำเร็จค่ะ');
           }
         }} className="space-y-8 text-left">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -689,18 +918,20 @@ function App() {
                 type="button"
                 onClick={async () => {
                   if (confirm('คุณแน่ใจว่าต้องการลบข้อมูลนี้ใช่ไหมคะ?')) {
-                    let url = '';
-                    if (showCrudModal === 'Menu') url = `${API_BASE}/food-items`;
-                    else if (showCrudModal === 'Staff') url = `${API_BASE}/employees`;
-                    else if (showCrudModal === 'Customers') url = `${API_BASE}/customers`;
+                    let endpoint = '';
+                    if (showCrudModal === 'Menu') endpoint = '/food-items';
+                    else if (showCrudModal === 'Staff') endpoint = '/employees';
+                    else if (showCrudModal === 'Customers') endpoint = '/customers';
                     
                     try {
-                      const res = await fetch(`${url}/${selectedItem.id}`, { method: 'DELETE' });
-                      if (res.ok) {
-                        fetchData();
-                        setShowCrudModal(null);
-                        setSelectedItem(null);
-                      }
+                      if (showCrudModal === 'Menu') await api.deleteFood(selectedItem.id);
+                      else if (showCrudModal === 'Staff') await api.deleteEmployee(selectedItem.id);
+                      else if (showCrudModal === 'Customers') await api.deleteCustomer(selectedItem.id);
+                      else if (showCrudModal === 'Tables') await api.deleteTable(selectedItem.id);
+                      
+                      fetchData();
+                      setShowCrudModal(null);
+                      setSelectedItem(null);
                     } catch (e) { alert('ลบไม่สำเร็จค่ะ'); }
                   }
                 }}
