@@ -14,7 +14,8 @@ export const ManagementTable = ({
       className="premium-card !p-0 overflow-hidden text-left w-full flex flex-col h-[calc(100vh-250px)]"
     >
       <div className="overflow-auto flex-grow relative custom-scrollbar">
-        <table className="w-full border-collapse">
+        <div className="min-w-[800px] lg:min-w-0">
+          <table className="w-full border-collapse">
           <thead className="bg-slate-50 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 sticky top-0 z-10 shadow-sm">
             <tr>
               {activeTab === 'Staff' && (
@@ -134,7 +135,8 @@ export const ManagementTable = ({
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: idx * 0.02 }}
                 key={r.id} 
-                className="hover:bg-slate-50/50 transition-colors"
+                onClick={() => { setSelectedItem(r); setShowCrudModal('ReceiptDetail'); }}
+                className="hover:bg-slate-50/50 transition-colors cursor-pointer group"
               >
                 <td className="px-8 py-6 font-bold text-[11px] text-shabu-orange">{r.receiptId}</td>
                 <td className="px-8 py-6 text-center text-xs font-bold text-slate-400">{r.issueDate ? new Date(r.issueDate).toLocaleDateString() : '-'}</td>
@@ -167,8 +169,9 @@ export const ManagementTable = ({
             ))}
           </tbody>
         </table>
-        <div className="p-10">
-          <SQLBox query={pdfQueries[activeTab === 'TablesData' ? 'Live Map' : activeTab]} />
+          <div className="p-10">
+            <SQLBox query={pdfQueries[activeTab === 'TablesData' ? 'Live Map' : activeTab]} />
+          </div>
         </div>
       </div>
     </motion.div>

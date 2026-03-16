@@ -6,21 +6,21 @@ export const TablesManagement = ({
   setShowCrudModal, pdfQueries 
 }) => {
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-5 gap-10 items-start text-left w-full h-[calc(100vh-250px)] overflow-hidden">
-      <div className="lg:col-span-3 premium-card flex flex-col h-full overflow-hidden">
-        <div className="flex justify-between items-center mb-10 pb-6 border-b border-slate-50 shrink-0">
-          <h3 className="font-bold text-slate-800 uppercase tracking-widest text-xs">ผังโต๊ะและการจัดการ</h3>
-          <div className="flex gap-6">
-            <div className="flex items-center gap-2 text-[9px] font-bold text-slate-400 uppercase">
+    <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 lg:gap-10 items-start text-left w-full lg:h-[calc(100vh-250px)] overflow-y-auto lg:overflow-hidden scrollbar-hide">
+      <div className="lg:col-span-3 premium-card !p-6 lg:!p-10 flex flex-col h-full overflow-hidden">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 lg:mb-10 pb-6 border-b border-slate-50 shrink-0 gap-4">
+          <h3 className="font-bold text-slate-800 uppercase tracking-widest text-[10px] lg:text-xs">ผังโต๊ะและการจัดการ</h3>
+          <div className="flex gap-4 lg:gap-6">
+            <div className="flex items-center gap-2 text-[8px] lg:text-[9px] font-bold text-slate-400 uppercase">
               <div className="w-2 h-2 bg-green-500 rounded-full"></div> ว่าง
             </div>
-            <div className="flex items-center gap-2 text-[9px] font-bold text-slate-400 uppercase">
+            <div className="flex items-center gap-2 text-[8px] lg:text-[9px] font-bold text-slate-400 uppercase">
               <div className="w-2 h-2 bg-red-500 rounded-full"></div> ไม่ว่าง
             </div>
           </div>
         </div>
-        <div className="flex-grow overflow-auto custom-scrollbar pr-2 pb-6">
-          <div className="grid grid-cols-4 gap-4">
+        <div className="flex-grow overflow-auto custom-scrollbar lg:pr-2 pb-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
             {tables.map((t, idx) => (
               <motion.button 
                 initial={{ opacity: 0, scale: 0.9 }}
@@ -30,10 +30,10 @@ export const TablesManagement = ({
                 whileTap={{ scale: 0.95 }}
                 key={t.id} 
                 onClick={() => handleTableClick(t)} 
-                className={`p-6 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 group ${t.id === selectedTable?.id ? 'border-shabu-orange ring-4 ring-orange-50 bg-white' : (t.status === 'Available' ? 'bg-white border-slate-100' : 'bg-red-50/50 border-red-50 opacity-60')}`}
+                className={`p-4 lg:p-6 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 group ${t.id === selectedTable?.id ? 'border-shabu-orange ring-4 ring-orange-50 bg-white' : (t.status === 'Available' ? 'bg-white border-slate-100' : 'bg-red-50/50 border-red-50 opacity-60')}`}
               >
-                <p className="text-sm font-black text-slate-800">โต๊ะ {t.tableNo}</p>
-                <p className="text-[9px] font-bold text-slate-400 uppercase">ความจุ {t.capacity} ท่าน</p>
+                <p className="text-xs lg:text-sm font-black text-slate-800">โต๊ะ {t.tableNo}</p>
+                <p className="text-[8px] lg:text-[9px] font-bold text-slate-400 uppercase">ความจุ {t.capacity} ท่าน</p>
                 <div className={`mt-2 w-full h-1.5 rounded-full ${t.status === 'Available' ? 'bg-green-500' : 'bg-red-500'}`} />
               </motion.button>
             ))}

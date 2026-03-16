@@ -8,6 +8,7 @@ import * as api from './services/api';
 import { SidebarItem } from './components/layout/SidebarItem';
 import { Modal } from './components/ui/Modal';
 import { Input } from './components/ui/Input';
+import { Receipt } from './features/receipts/Receipt';
 import { SQLBox } from './components/ui/SQLBox';
 
 // Features
@@ -24,33 +25,23 @@ import { useData } from './hooks/useData';
 
 // Utils
 import { pdfQueries } from './utils/queries';
+import { useStore } from './store/useStore';
 
 function App() {
   const { toasts, addToast } = useToast();
-  const { user, isLoggingIn, handleLogin, handleLogout, setUser } = useAuth(addToast);
+  const { activeTab, setActiveTab } = useStore();
+  const { user, isLoggingIn, handleLogin, handleLogout } = useAuth(addToast);
 
-  const [activeTab, setActiveTabState] = useState(() => {
-    return localStorage.getItem('shabu_active_tab') || 'Dashboard';
-  });
-
-  const setActiveTab = (tab) => {
-    setActiveTabState(tab);
-    localStorage.setItem('shabu_active_tab', tab);
-  };
-
-  const { 
-    stats, tables, menu, staff, customers, receipts, loading, 
-    fetchData, setTables, setMenu, setStaff, setCustomers, setLoading 
+  const {
+    stats, tables, menu, staff, customers, receipts, loading,
+    fetchData
   } = useData(user, activeTab);
 
   const [showCrudModal, setShowCrudModal] = useState(null);
   const [selectedTable, setSelectedTable] = useState(null);
   const [selectedItem, setSelectedItem] = useState(null);
   const [orderItems, setOrderItems] = useState([]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const onLogin = async (e) => {
     const initialTab = await handleLogin(e);
@@ -123,25 +114,44 @@ function App() {
       {!user ? (
         <Login handleLogin={onLogin} isLoggingIn={isLoggingIn} pdfQueries={pdfQueries} />
       ) : (
-        <div className="min-h-screen bg-shabu-bg flex font-sans text-slate-800">
-          <aside className="w-72 bg-white flex flex-col pt-12 shrink-0 border-r border-slate-100/50">
-            <div className="flex items-center gap-3 mb-16 px-10">
-              <div className="w-10 h-10 bg-[#F26522] rounded-xl flex items-center justify-center text-xl shadow-lg shadow-orange-100 transform -rotate-6">🍲</div>
-              <span className="text-xl font-black tracking-tighter">SHABU</span>
+        <div className="min-h-screen bg-shabu-bg flex font-sans text-slate-800 relative">
+          {/* Mobile Sidebar Overlay */}
+          <AnimatePresence>
+            {isSidebarOpen && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setIsSidebarOpen(false)}
+                className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[60] lg:hidden"
+              />
+            )}
+          </AnimatePresence>
+
+          <aside className={`
+            fixed lg:static inset-y-0 left-0 w-72 bg-white flex flex-col pt-12 shrink-0 border-r border-slate-100/50 z-[70] transition-transform duration-300 ease-in-out
+            ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+          `}>
+            <div className="flex items-center justify-between px-10 mb-16">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-[#F26522] rounded-xl flex items-center justify-center text-xl shadow-lg shadow-orange-100 transform -rotate-6">🍲</div>
+                <span className="text-xl font-black tracking-tighter">SHABU</span>
+              </div>
+              <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden text-slate-400 p-2">✕</button>
             </div>
 
-            <nav className="flex-grow space-y-1">
+            <nav className="flex-grow space-y-1 overflow-y-auto">
               <p className="px-10 text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Core</p>
-              <SidebarItem icon="🏠" label="Dashboard" active={activeTab === 'Dashboard'} onClick={() => setActiveTab('Dashboard')} hidden={user.role === 'Customer'} />
-              <SidebarItem icon="🪑" label="จัดการโต๊ะ" active={activeTab === 'Tables'} onClick={() => setActiveTab('Tables')} hidden={user.role === 'Customer'} />
-              <SidebarItem icon="🍱" label="จองโต๊ะออนไลน์" active={activeTab === 'Live Map'} onClick={() => setActiveTab('Live Map')} hidden={user.role !== 'Customer'} />
+              <SidebarItem icon="🏠" label="Dashboard" active={activeTab === 'Dashboard'} onClick={() => { setActiveTab('Dashboard'); setIsSidebarOpen(false); }} hidden={user.role === 'Customer'} />
+              <SidebarItem icon="🪑" label="จัดการโต๊ะ" active={activeTab === 'Tables'} onClick={() => { setActiveTab('Tables'); setIsSidebarOpen(false); }} hidden={user.role === 'Customer'} />
+              <SidebarItem icon="🍱" label="จองโต๊ะออนไลน์" active={activeTab === 'Live Map'} onClick={() => { setActiveTab('Live Map'); setIsSidebarOpen(false); }} hidden={user.role !== 'Customer'} />
 
               <div className="pt-8 mb-4 px-10 border-t border-slate-50 mt-4 h-0" />
-              <SidebarItem icon="🍜" label="รายการอาหาร" active={activeTab === 'Menu'} onClick={() => setActiveTab('Menu')} hidden={user.role !== 'Manager'} />
-              <SidebarItem icon="🪑" label="ข้อมูลโต๊ะ" active={activeTab === 'TablesData'} onClick={() => setActiveTab('TablesData')} hidden={user.role !== 'Manager'} />
-              <SidebarItem icon="👥" label="พนักงาน" active={activeTab === 'Staff'} onClick={() => setActiveTab('Staff')} hidden={user.role !== 'Manager'} />
-              <SidebarItem icon="👤" label="ข้อมูลลูกค้า" active={activeTab === 'Customers'} onClick={() => setActiveTab('Customers')} hidden={user.role !== 'Manager'} />
-              <SidebarItem icon="🧾" label="ใบเสร็จ" active={activeTab === 'Receipts'} onClick={() => setActiveTab('Receipts')} hidden={user.role === 'Customer'} />
+              <SidebarItem icon="🍜" label="รายการอาหาร" active={activeTab === 'Menu'} onClick={() => { setActiveTab('Menu'); setIsSidebarOpen(false); }} hidden={user.role !== 'Manager'} />
+              <SidebarItem icon="🪑" label="ข้อมูลโต๊ะ" active={activeTab === 'TablesData'} onClick={() => { setActiveTab('TablesData'); setIsSidebarOpen(false); }} hidden={user.role !== 'Manager'} />
+              <SidebarItem icon="👥" label="พนักงาน" active={activeTab === 'Staff'} onClick={() => { setActiveTab('Staff'); setIsSidebarOpen(false); }} hidden={user.role !== 'Manager'} />
+              <SidebarItem icon="👤" label="ข้อมูลลูกค้า" active={activeTab === 'Customers'} onClick={() => { setActiveTab('Customers'); setIsSidebarOpen(false); }} hidden={user.role !== 'Manager'} />
+              <SidebarItem icon="🧾" label="ใบเสร็จ" active={activeTab === 'Receipts'} onClick={() => { setActiveTab('Receipts'); setIsSidebarOpen(false); }} hidden={user.role === 'Customer'} />
             </nav>
 
             <div className="p-10">
@@ -157,26 +167,33 @@ function App() {
           </aside>
 
           <main className="flex-grow flex flex-col overflow-hidden h-screen relative">
-            <header className="px-12 py-10 flex justify-between items-end shrink-0 sticky top-0 bg-shabu-bg/80 backdrop-blur-md z-30">
-              <div className="text-left">
-                <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tight">{activeTab === 'Tables' ? 'การจัดการโต๊ะ' : activeTab}</h2>
-                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-1">สวัสดี คุณ {user.name} 👋</p>
+            <header className="px-6 lg:px-12 py-10 flex justify-between items-end shrink-0 sticky top-0 bg-shabu-bg/80 backdrop-blur-md z-30">
+              <div className="text-left flex items-center gap-4">
+                <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden p-2 -ml-2 bg-white rounded-xl shadow-sm border border-slate-100 p-2.5">
+                  <div className="w-5 h-0.5 bg-slate-800 mb-1"></div>
+                  <div className="w-5 h-0.5 bg-slate-800 mb-1"></div>
+                  <div className="w-5 h-0.5 bg-slate-800"></div>
+                </button>
+                <div>
+                  <h2 className="text-xl lg:text-2xl font-black text-slate-800 uppercase tracking-tight">{activeTab === 'Tables' ? 'การจัดการโต๊ะ' : activeTab}</h2>
+                  <p className="text-[9px] lg:text-[11px] font-bold text-slate-400 uppercase tracking-widest mt-1">สวัสดี คุณ {user.name} 👋</p>
+                </div>
               </div>
-              <div className="text-[11px] font-bold text-slate-400 bg-white px-4 py-2 rounded-full border border-slate-100 shadow-sm">
+              <div className="text-[9px] lg:text-[11px] font-bold text-slate-400 bg-white px-4 py-2 rounded-full border border-slate-100 shadow-sm hidden sm:block">
                 18 ม.ค. 2569
               </div>
             </header>
 
-            <div className="px-12 pb-24 flex-grow flex flex-col relative">
+            <div className="px-6 lg:px-12 pb-24 flex-grow flex flex-col relative overflow-y-auto lg:overflow-hidden scrollbar-hide">
               <AnimatePresence mode="wait">
                 {activeTab === 'Dashboard' && (
                   <Dashboard stats={stats} tables={tables} handleTableClick={onTableClick} pdfQueries={pdfQueries} />
                 )}
                 {activeTab === 'Tables' && (
-                  <TablesManagement 
-                    tables={tables} selectedTable={selectedTable} handleTableClick={onTableClick} 
-                    orderItems={orderItems} finalizePayment={finalizePayment} 
-                    setShowCrudModal={setShowCrudModal} pdfQueries={pdfQueries} 
+                  <TablesManagement
+                    tables={tables} selectedTable={selectedTable} handleTableClick={onTableClick}
+                    orderItems={orderItems} finalizePayment={finalizePayment}
+                    setShowCrudModal={setShowCrudModal} pdfQueries={pdfQueries}
                   />
                 )}
                 {activeTab === 'Live Map' && (
@@ -191,18 +208,25 @@ function App() {
                   </motion.div>
                 )}
                 {['Menu', 'Staff', 'Customers', 'Receipts', 'TablesData'].includes(activeTab) && (
-                  <ManagementTable 
-                    activeTab={activeTab} staff={staff} menu={menu} customers={customers} 
-                    receipts={receipts} tables={tables} setSelectedItem={setSelectedItem} 
-                    setShowCrudModal={setShowCrudModal} pdfQueries={pdfQueries} 
+                  <ManagementTable
+                    activeTab={activeTab} staff={staff} menu={menu} customers={customers}
+                    receipts={receipts} tables={tables} setSelectedItem={setSelectedItem}
+                    setShowCrudModal={setShowCrudModal} pdfQueries={pdfQueries}
                   />
                 )}
               </AnimatePresence>
 
+              {/* Student Credit */}
+              <div className="mt-auto pt-8 pb-4 text-center">
+                <p className="text-[10px] font-medium text-slate-300 uppercase tracking-widest opacity10">
+                  นายชยพล อินแก้ว | รหัสนักศึกษา: 66143206002-7
+                </p>
+              </div>
+
               {/* Premium Loading Overlay */}
               <AnimatePresence>
                 {loading && user && (
-                  <motion.div 
+                  <motion.div
                     key="loading-bar"
                     initial={{ scaleX: 0, opacity: 0 }}
                     animate={{ scaleX: 1, opacity: 1 }}
@@ -211,10 +235,10 @@ function App() {
                     transition={{ duration: 0.5, ease: "easeOut" }}
                     className="fixed top-0 left-0 right-0 h-1 bg-gradient-to-r from-shabu-orange via-orange-400 to-shabu-orange z-[100] shadow-[0_2px_10px_rgba(242,101,34,0.3)]"
                   >
-                    <motion.div 
-                      animate={{ opacity: [0.4, 0.8, 0.4] }} 
+                    <motion.div
+                      animate={{ opacity: [0.4, 0.8, 0.4] }}
                       transition={{ repeat: Infinity, duration: 1.5 }}
-                      className="w-full h-full bg-white/20 blur-sm" 
+                      className="w-full h-full bg-white/20 blur-sm"
                     />
                   </motion.div>
                 )}
@@ -229,9 +253,17 @@ function App() {
             </button>
           )}
 
-          {/* CRUD Modals */}
-          <Modal title={`จัดการข้อมูล ${showCrudModal}`} isOpen={!!showCrudModal && !showCrudModal.includes('Order')} onClose={() => { setShowCrudModal(null); setSelectedItem(null); }}>
-            <form onSubmit={async (e) => {
+          {/* CRUD & Detail Modals */}
+          <Modal 
+            title={showCrudModal === 'ReceiptDetail' ? 'ใบเสร็จรับเงิน' : `จัดการข้อมูล ${showCrudModal}`} 
+            isOpen={!!showCrudModal && !showCrudModal.includes('Order')} 
+            onClose={() => { setShowCrudModal(null); setSelectedItem(null); }}
+            raw={showCrudModal === 'ReceiptDetail'}
+          >
+            {showCrudModal === 'ReceiptDetail' ? (
+              <Receipt receipt={selectedItem} />
+            ) : (
+              <form onSubmit={async (e) => {
               e.preventDefault();
               const formData = new FormData(e.target);
               const data = Object.fromEntries(formData.entries());
@@ -322,7 +354,8 @@ function App() {
                 {selectedItem && <div className="mt-4"><SQLBox query={pdfQueries[`${showCrudModal}_Delete`]} /></div>}
               </div>
             </form>
-          </Modal>
+          )}
+        </Modal>
 
           {/* Quick Order Modal */}
           <Modal title={`สั่งอาหาร - โต๊ะ ${selectedTable?.tableNo}`} isOpen={showCrudModal === 'OrderModal'} onClose={() => setShowCrudModal(null)}>

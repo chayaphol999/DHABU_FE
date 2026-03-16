@@ -1,72 +1,83 @@
-import { useState, useCallback } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as api from '../services/api';
 
 export const useData = (user, activeTab) => {
-  const [stats, setStats] = useState({ salesToday: 0, availableTables: 0, popularItems: [] });
-  const [tables, setTables] = useState([]);
-  const [menu, setMenu] = useState([]);
-  const [staff, setStaff] = useState([]);
-  const [customers, setCustomers] = useState([]);
-  const [receipts, setReceipts] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const queryClient = useQueryClient();
 
-  const fetchData = useCallback(async () => {
-    if (!user) return;
-    setLoading(true);
-    try {
-      const tabDataMap = {
-        'Dashboard': async () => {
-          const [statsData, tablesData] = await Promise.all([api.getStats(), api.getTables()]);
-          setStats({
-            salesToday: statsData.salesToday || 0,
-            availableTables: statsData.availableTables || 0,
-            popularItems: statsData.popularItems || []
-          });
-          setTables(Array.isArray(tablesData) ? tablesData : []);
-        },
-        'Tables': async () => {
-          const [tablesData, menuData] = await Promise.all([api.getTables(), api.getMenu()]);
-          setTables(Array.isArray(tablesData) ? tablesData : []);
-          setMenu(Array.isArray(menuData) ? menuData : []);
-        },
-        'Live Map': async () => {
-          const tablesData = await api.getTables();
-          setTables(Array.isArray(tablesData) ? tablesData : []);
-        },
-        'TablesData': async () => {
-          const tablesData = await api.getTables();
-          setTables(Array.isArray(tablesData) ? tablesData : []);
-        },
-        'Menu': async () => {
-          const menuData = await api.getMenu();
-          setMenu(Array.isArray(menuData) ? menuData : []);
-        },
-        'Staff': async () => {
-          const staffData = await api.getEmployees();
-          setStaff(Array.isArray(staffData) ? staffData : []);
-        },
-        'Customers': async () => {
-          const customersData = await api.getCustomers();
-          setCustomers(Array.isArray(customersData) ? customersData : []);
-        },
-        'Receipts': async () => {
-          const receiptsData = await api.getReceipts();
-          setReceipts(Array.isArray(receiptsData) ? receiptsData : []);
-        }
-      };
+  // Queries
+  const statsQuery = useQuery({
+    queryKey: ['stats'],
+    queryFn: api.getStats,
+    enabled: !!user && activeTab === 'Dashboard',
+    staleTime: 30000,
+  });
 
-      if (tabDataMap[activeTab]) {
-        await tabDataMap[activeTab]();
-      }
-    } catch (e) {
-      console.error("Fetch Error:", e);
-    } finally {
-      setLoading(false);
-    }
-  }, [user, activeTab]);
+  const tablesQuery = useQuery({
+    queryKey: ['tables'],
+    queryFn: api.getTables,
+    enabled: !!user && ['Dashboard', 'Tables', 'Live Map', 'TablesData'].includes(activeTab),
+  });
+
+  const menuQuery = useQuery({
+    queryKey: ['menu'],
+    queryFn: api.getMenu,
+    enabled: !!user && ['Tables', 'Menu'].includes(activeTab),
+  });
+
+  const staffQuery = useQuery({
+    queryKey: ['employees'],
+    queryFn: api.getEmployees,
+    enabled: !!user && activeTab === 'Staff',
+  });
+
+  const customersQuery = useQuery({
+    queryKey: ['customers'],
+    queryFn: api.getCustomers,
+    enabled: !!user && activeTab === 'Customers',
+  });
+
+  const receiptsQuery = useQuery({
+    queryKey: ['receipts'],
+    queryFn: api.getReceipts,
+    enabled: !!user && activeTab === 'Receipts',
+  });
+
+  // Data helpers
+  const stats = statsQuery.data || { salesToday: 0, availableTables: 0, popularItems: [] };
+  const tables = Array.isArray(tablesQuery.data) ? tablesQuery.data : [];
+  const menu = Array.isArray(menuQuery.data) ? menuQuery.data : [];
+  const staff = Array.isArray(staffQuery.data) ? staffQuery.data : [];
+  const customers = Array.isArray(customersQuery.data) ? customersQuery.data : [];
+  const receipts = Array.isArray(receiptsQuery.data) ? receiptsQuery.data : [];
+  
+  const loading = statsQuery.isLoading || tablesQuery.isLoading || menuQuery.isLoading || 
+                  staffQuery.isLoading || customersQuery.isLoading || receiptsQuery.isLoading;
+
+  const fetchData = async () => {
+    // Invalidate queries relevant to the current tab
+    const keysToInvalidate = {
+      'Dashboard': ['stats', 'tables'],
+      'Tables': ['tables', 'menu'],
+      'Live Map': ['tables'],
+      'TablesData': ['tables'],
+      'Menu': ['menu'],
+      'Staff': ['employees'],
+      'Customers': ['customers'],
+      'Receipts': ['receipts']
+    };
+    
+    const keys = keysToInvalidate[activeTab] || [];
+    keys.forEach(key => queryClient.invalidateQueries({ queryKey: [key] }));
+  };
 
   return {
     stats, tables, menu, staff, customers, receipts, loading,
-    fetchData, setTables, setMenu, setStaff, setCustomers, setLoading
+    fetchData,
+    // We export some mutation-friendly setters just in case, but usually we'd use useMutation
+    setTables: (newData) => queryClient.setQueryData(['tables'], newData),
+    setMenu: (newData) => queryClient.setQueryData(['menu'], newData),
+    setStaff: (newData) => queryClient.setQueryData(['employees'], newData),
+    setCustomers: (newData) => queryClient.setQueryData(['customers'], newData),
+    setLoading: () => {} // Managed by React Query
   };
 };
