@@ -45,7 +45,7 @@ export const LiveTableMap = ({ tables, onTableClick }) => (
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12 relative z-10">
             <div>
                 <h3 className="text-3xl font-black tracking-tight text-slate-800 mb-2">แผนผังร้าน (Live Map)</h3>
-                <p className="text-slate-400 text-sm font-medium">คลิกที่โต๊ะเพื่อจองหรือจัดการออเดอร์ค่ะ</p>
+                <p className="text-slate-400 text-sm font-medium">คลิกที่โต๊ะเพื่อจองหรือจัดการออเดอร์</p>
             </div>
             
             <div className="flex items-center gap-4 bg-slate-50 p-2 rounded-2xl border border-slate-100">

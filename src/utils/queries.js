@@ -1,4 +1,3 @@
-// Exact SQL Queries from PDF & Requirements
 export const pdfQueries = {
   'Dashboard_Sales': 'SELECT SUM(จำนวนเงินรวม) AS ยอดขายรวมวันนี้\nFROM ใบเสร็จ\nWHERE DATE(วันที่ออกใบเสร็จ) = CURDATE();',
   'Dashboard_Tables': 'SELECT COUNT(*) AS โต๊ะที่ว่าง\nFROM โต๊ะ\nWHERE รหัสลูกค้า IS NULL;',

@@ -70,7 +70,7 @@ export const TableManagement = ({
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <button onClick={onOpenOrderModal} className="py-4 bg-slate-100 text-slate-600 rounded-xl font-bold text-[11px] uppercase tracking-widest hover:bg-slate-200 transition-all">✚ สั่งอาหาร</button>
-                <button onClick={() => alert("ฟีเจอร์ย้ายโต๊ะยังไม่พร้อมใช้งานค่ะ")} className="py-4 bg-slate-100 text-slate-600 rounded-xl font-bold text-[11px] uppercase tracking-widest hover:bg-slate-200 transition-all">⇄ ย้ายโต๊ะ</button>
+                <button onClick={() => alert("ฟีเจอร์ย้ายโต๊ะยังไม่พร้อมใช้งาน")} className="py-4 bg-slate-100 text-slate-600 rounded-xl font-bold text-[11px] uppercase tracking-widest hover:bg-slate-200 transition-all">⇄ ย้ายโต๊ะ</button>
               </div>
               <button onClick={onFinalizePayment} className="w-full py-5 bg-shabu-orange text-white rounded-xl font-bold text-[13px] uppercase tracking-[0.2em] shadow-lg bg-[#E65100] hover:opacity-90 transition-all mt-4">🧾 เช็คบิล ({orderItems.reduce((sum, i) => sum + (i.price * i.quantity), 0).toLocaleString()})</button>
             </div>
